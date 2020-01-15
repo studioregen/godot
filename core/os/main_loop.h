@@ -40,6 +40,7 @@ class MainLoop : public Object {
 	GDCLASS(MainLoop, Object);
 	OBJ_CATEGORY("Main Loop");
 
+	// This can be used to override main-loop behaviors.
 	Ref<Script> init_script;
 
 protected:

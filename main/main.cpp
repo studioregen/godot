@@ -1551,6 +1551,7 @@ bool Main::start() {
 
 	MainLoop *main_loop = NULL;
 	if (editor) {
+		// Input-syncronized scene tree update here?
 		main_loop = memnew(SceneTree);
 	};
 
