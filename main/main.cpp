@@ -1747,6 +1747,7 @@ bool Main::start() {
 
 	MainLoop *main_loop = nullptr;
 	if (editor) {
+		// Input-syncronized scene tree update here?
 		main_loop = memnew(SceneTree);
 	};
 	String main_loop_type = GLOBAL_DEF("application/run/main_loop_type", "SceneTree");
