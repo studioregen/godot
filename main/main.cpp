@@ -60,6 +60,7 @@
 #include "platform/register_platform_apis.h"
 #include "scene/debugger/script_debugger_remote.h"
 #include "scene/main/scene_tree.h"
+#include "scene/main/scene_tree_lockstep.h"
 #include "scene/main/viewport.h"
 #include "scene/register_scene_types.h"
 #include "scene/resources/packed_scene.h"
@@ -1748,7 +1749,7 @@ bool Main::start() {
 	MainLoop *main_loop = nullptr;
 	if (editor) {
 		// Input-syncronized scene tree update here?
-		main_loop = memnew(SceneTree);
+        main_loop = memnew(SceneTreeLockstep);
 	};
 	String main_loop_type = GLOBAL_DEF("application/run/main_loop_type", "SceneTree");
 
