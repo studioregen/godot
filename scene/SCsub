@@ -14,9 +14,35 @@ thirdparty_sources = [
 ]
 thirdparty_sources = [thirdparty_dir + file for file in thirdparty_sources]
 
+thirdparty_ggpo_dir = "#thirdparty/ggpo/src/lib/ggpo/"
+thirdparty_ggpo_sources = [
+	"platform_unix.cpp",
+	"network/udp_proto.cpp",
+	"network/udp.cpp",
+	"backends/p2p.cpp",
+	"backends/spectator.cpp",
+	"backends/synctest.cpp",
+	"bitvector.cpp",
+	"game_input.cpp",
+	"input_queue.cpp",
+	"log.cpp",
+	"pevents.cpp",
+	"poll.cpp",
+	"sync.cpp",
+	"timesync.cpp",
+	"main.cpp"
+]
+thirdparty_ggpo_sources = [thirdparty_ggpo_dir + file for file in thirdparty_ggpo_sources]
+
 env_thirdparty = env.Clone()
 env_thirdparty.disable_warnings()
+
+env_thirdparty.Prepend(CPPPATH=['#thirdparty/ggpo/src/include'])
+env_thirdparty.Prepend(CPPPATH=['#thirdparty/ggpo/src/lib/ggpo'])
+env_thirdparty.Prepend(CPPPATH=['#thirdparty/ggpo/src/lib/backends'])
+
 env_thirdparty.add_source_files(env.scene_sources, thirdparty_sources)
+env_thirdparty.add_source_files(env.scene_sources, thirdparty_ggpo_sources)
 
 # Godot's own sources
 env.add_source_files(env.scene_sources, "*.cpp")

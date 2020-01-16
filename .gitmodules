@@ -1,0 +1,3 @@
+[submodule "thirdparty/ggpo"]
+	path = thirdparty/ggpo
+	url = /home/eoin/Source/ggpo
