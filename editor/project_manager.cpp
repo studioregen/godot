@@ -52,6 +52,7 @@
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/tool_button.h"
 #include "servers/navigation_server.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 // Used to test for GLES3 support.
 #ifndef SERVER_ENABLED
@@ -2734,8 +2735,8 @@ ProjectManager::ProjectManager() {
 		}
 	}
 
-	SceneTree::get_singleton()->connect("files_dropped", this, "_files_dropped");
-	SceneTree::get_singleton()->connect("global_menu_action", this, "_global_menu_action");
+    SceneTreeLockstep::get_singleton()->connect("files_dropped", this, "_files_dropped");
+    SceneTreeLockstep::get_singleton()->connect("global_menu_action", this, "_global_menu_action");
 
 	run_error_diag = memnew(AcceptDialog);
 	gui_base->add_child(run_error_diag);

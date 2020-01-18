@@ -2,26 +2,35 @@
 #include "core/engine.h"
 #include "viewport.h"
 
-Peer2PeerNetwork* Peer2PeerNetwork::instance = nullptr;
+GGPONetwork* GGPONetwork::instance = nullptr;
 
 
 void PFGInput::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("set_left_right", "dir"), &PFGInput::set_left_right);
+    ClassDB::bind_method(D_METHOD("get_left_right"), &PFGInput::get_left_right);
+    ClassDB::bind_method(D_METHOD("set_up_down", "dir"), &PFGInput::set_up_down);
+    ClassDB::bind_method(D_METHOD("get_up_down"), &PFGInput::get_up_down);
+    ClassDB::bind_method(D_METHOD("set_swap", "grab"), &PFGInput::set_swap);
+    ClassDB::bind_method(D_METHOD("get_swap"), &PFGInput::get_swap);
 
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "left_right"), "set_left_right", "get_left_right");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "up_down"), "set_up_down", "get_up_down");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "swap"), "set_swap", "get_swap");
 }
 
 void PFGState::_bind_methods() {
 
 }
 
-Peer2PeerNetwork* Peer2PeerNetwork::get_singleton() {
+GGPONetwork* GGPONetwork::get_singleton() {
     if (!instance) {
-        instance = memnew(Peer2PeerNetwork);
+        instance = memnew(GGPONetwork);
     }
 
     return instance;
 }
 
-bool Peer2PeerNetwork::start_session(Object* tree_object, String name, uint16_t num_players, uint16_t udp_port) {
+bool GGPONetwork::start_session(Object* tree_object, String name, uint16_t num_players, uint16_t udp_port) {
     SceneTreeLockstep* tree = Object::cast_to<SceneTreeLockstep>(tree_object);
     if (tree != nullptr) { //bail if tree is invalid.
         set_tree(tree);
@@ -32,12 +41,12 @@ bool Peer2PeerNetwork::start_session(Object* tree_object, String name, uint16_t 
     GGPOErrorCode errcode;
     GGPOSessionCallbacks callbacks;
 
-    callbacks.begin_game = Peer2PeerNetwork::cb_begin_game;
-    callbacks.advance_frame = Peer2PeerNetwork::cb_advance_frame;
-    callbacks.load_game_state = Peer2PeerNetwork::cb_load_game_state;
-    callbacks.save_game_state = Peer2PeerNetwork::cb_save_game_state;
-    callbacks.free_buffer = Peer2PeerNetwork::cb_free_game_state;
-    callbacks.on_event = Peer2PeerNetwork::cb_ggpo_event;
+    callbacks.begin_game = GGPONetwork::cb_begin_game;
+    callbacks.advance_frame = GGPONetwork::cb_advance_frame;
+    callbacks.load_game_state = GGPONetwork::cb_load_game_state;
+    callbacks.save_game_state = GGPONetwork::cb_save_game_state;
+    callbacks.free_buffer = GGPONetwork::cb_free_game_state;
+    callbacks.on_event = GGPONetwork::cb_ggpo_event;
 
     errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(PFGInput), udp_port);
 
@@ -48,7 +57,7 @@ bool Peer2PeerNetwork::start_session(Object* tree_object, String name, uint16_t 
     return true;
 }
 
-bool Peer2PeerNetwork::add_player(Peer2PeerNetwork::PlayerType type, String ip_address) {
+bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
     if (current_player_count >= total_player_count) {
         return false; // Can't have more players than we promised in the session initialization.
     }
@@ -66,7 +75,7 @@ bool Peer2PeerNetwork::add_player(Peer2PeerNetwork::PlayerType type, String ip_a
     return true;
 }
 
-bool Peer2PeerNetwork::add_local_input(uint8_t index, PFGInput* input) {
+bool GGPONetwork::add_local_input(uint8_t index, PFGInput* input) {
     if ( index >= current_player_count ) {
         return false;
     }
@@ -77,25 +86,30 @@ bool Peer2PeerNetwork::add_local_input(uint8_t index, PFGInput* input) {
     return GGPO_SUCCEEDED(err);
 }
 
-bool Peer2PeerNetwork::synchronize_inputs(PFGInput* inputs) {
+bool GGPONetwork::synchronize_inputs(PFGInput* inputs) {
     GGPOErrorCode err;
     int disconnection_flags;
     err = ggpo_synchronize_input(session, inputs, sizeof(PFGInput) * current_player_count, &disconnection_flags);
     return GGPO_SUCCEEDED(err);
 }
 
-void Peer2PeerNetwork::close_session() {
+bool GGPONetwork::advance_frame() {
+    int err = ggpo_advance_frame(session);
+    return GGPO_SUCCEEDED(err);
+}
+
+void GGPONetwork::close_session() {
     ggpo_close_session(session);
     current_player_count = 0;
     total_player_count = 0;
     tree = nullptr;
 }
 
-SceneTreeLockstep *Peer2PeerNetwork::get_tree() {
+SceneTreeLockstep *GGPONetwork::get_tree() {
     return tree;
 }
 
-bool Peer2PeerNetwork::is_player_local(uint8_t id){
+bool GGPONetwork::is_player_local(uint8_t id){
     if ( id < get_current_player_count()) {
         return (players[id].type == GGPO_PLAYERTYPE_LOCAL);
     } else {
@@ -103,58 +117,70 @@ bool Peer2PeerNetwork::is_player_local(uint8_t id){
     }
 }
 
-bool Peer2PeerNetwork::is_game_in_session() {
+bool GGPONetwork::is_game_in_session() {
     return (total_player_count > 0);
 }
 
 
-bool Peer2PeerNetwork::cb_begin_game(const char *game) {
+bool GGPONetwork::cb_begin_game(const char *game) {
     /* deprecated, but still necessary for some reason? */
     return true;
 }
 
-bool Peer2PeerNetwork::cb_advance_frame(int someInt) {
+bool GGPONetwork::cb_advance_frame(int someInt) {
     //Would be nice if we could use godot's signal system to handle these callbacks!
-    Peer2PeerNetwork::get_singleton()->get_tree()->advance_frame(someInt);
+    GGPONetwork::get_singleton()->get_tree()->advance_frame(someInt);
     return true;
 }
 
-bool Peer2PeerNetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, int *out_checksum, int frame) {
-    PFGState *state = &Peer2PeerNetwork::get_singleton()->get_tree()->game_state;
+bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, int *out_checksum, int frame) {
+    PFGState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
     *out_len = sizeof(*state);
     copymem(*out_buffer, state, *out_len);
     return true;
 }
 
-bool Peer2PeerNetwork::cb_load_game_state(unsigned char *buffer, int len) {
-    PFGState *state = &Peer2PeerNetwork::get_singleton()->get_tree()->game_state;
+bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
+    PFGState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
     copymem(state, buffer, len);
     return true;
 }
 
-void Peer2PeerNetwork::cb_free_game_state(void *buffer) {
+void GGPONetwork::cb_free_game_state(void *buffer) {
     memfree(buffer);
 }
 
-bool Peer2PeerNetwork::cb_ggpo_event(GGPOEvent* info) {
+bool GGPONetwork::cb_ggpo_event(GGPOEvent* info) {
     return true;
 }
 
-void Peer2PeerNetwork::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("start_session", "tree", "name", "player_count", "port"), &Peer2PeerNetwork::start_session);
-    ClassDB::bind_method(D_METHOD("add_player", "type", "ip_address"), &Peer2PeerNetwork::start_session);
-    ClassDB::bind_method(D_METHOD("close_session"), &Peer2PeerNetwork::close_session);
+void GGPONetwork::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("start_session", "tree", "name", "player_count", "port"), &GGPONetwork::start_session);
+    ClassDB::bind_method(D_METHOD("add_player", "player_locality", "ip_address"), &GGPONetwork::add_player);
+    ClassDB::bind_method(D_METHOD("close_session"), &GGPONetwork::close_session);
 
-    ClassDB::bind_method(D_METHOD("is_player_local", "id"), &Peer2PeerNetwork::is_player_local);
-    ClassDB::bind_method(D_METHOD("is_game_in_session"), &Peer2PeerNetwork::is_game_in_session);
+    ClassDB::bind_method(D_METHOD("is_player_local", "id"), &GGPONetwork::is_player_local);
+    ClassDB::bind_method(D_METHOD("is_game_in_session"), &GGPONetwork::is_game_in_session);
+
+    BIND_ENUM_CONSTANT(LOCAL_PLAYER);
+    BIND_ENUM_CONSTANT(REMOTE_PLAYER);
 }
 
 bool SceneTreeLockstep::iteration(float p_time) {
     fixed_delta = p_time;
-	if (Engine::get_singleton()->is_editor_hint()) return SceneTree::iteration(p_time);
 
-    Peer2PeerNetwork* ggpo = Peer2PeerNetwork::get_singleton();
-    if (!ggpo->is_game_in_session()) return SceneTree::iteration(p_time);
+    //Dictionary format_args;
+    //format_args["isEditor"] = Engine::get_singleton()->is_editor_hint();
+
+    //print_line(String("Testing. IsEditor={isEditor}").format(format_args));
+    if (Engine::get_singleton()->is_editor_hint()) {
+        return SceneTree::iteration(p_time);
+    }
+
+    GGPONetwork* ggpo = GGPONetwork::get_singleton();
+    if (!ggpo->is_game_in_session()) {
+        return SceneTree::iteration(p_time);
+    }
 
     PFGInput inputs[ggpo->get_current_player_count()];
 
@@ -172,20 +198,21 @@ bool SceneTreeLockstep::iteration(float p_time) {
 
     if (ggpo->synchronize_inputs(inputs)) { //Gets both remote and local (+frameDelay) inputs into array.
         bool shouldQuit = SceneTree::iteration(fixed_delta);
+        ggpo->advance_frame();
 		return shouldQuit;
 	} else {
-		return false;
+        return false;
 	}
 }
 
 /* This function wraps the SceneTree version of iteration so that,
  * when the system needs to rollback and resimulate n-frames,
- * it can this function as a callback within GGPO.
+ * it can call this function as a callback within GGPO.
  *
  * Iteration must be fixed & deterministic.
  */
 bool SceneTreeLockstep::advance_frame(int) {
-    Peer2PeerNetwork* network = Peer2PeerNetwork::get_singleton();
+    GGPONetwork* network = GGPONetwork::get_singleton();
     const int players = network->get_current_player_count();
     PFGInput inputs[players];
 
@@ -200,13 +227,14 @@ void SceneTreeLockstep::request_inputs_for_local_player(PFGInput *ob, uint8_t pl
     args.append(player_id);
 
     if( get_root() )
-        get_root()->propagate_call("fill_local_player_input", args, player_id );
+        get_root()->propagate_call("fill_local_player_input", args );
 
 }
 
 void SceneTreeLockstep::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_game_state"), &SceneTreeLockstep::get_game_state);
     ClassDB::bind_method(D_METHOD("set_game_state"), &SceneTreeLockstep::set_game_state);
+    ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
 
-    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_state"), "get_game_state", "set_game_state");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_state"), "set_game_state", "get_game_state");
 }

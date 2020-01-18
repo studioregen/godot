@@ -37,6 +37,7 @@
 #include "scene/2d/area_2d.h"
 #include "servers/navigation_2d_server.h"
 #include "servers/physics_2d_server.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 int TileMap::_get_quadrant_size() const {
 	if (y_sort_mode) {
@@ -336,7 +337,7 @@ void TileMap::update_dirty_quadrants() {
 
 	Vector2 qofs;
 
-	SceneTree *st = SceneTree::get_singleton();
+    SceneTree *st = SceneTreeLockstep::get_singleton();
 	Color debug_collision_color;
 	Color debug_navigation_color;
 

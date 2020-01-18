@@ -6,7 +6,7 @@ Q: Can this design be adjusted so that project-specific code is relegated to GDS
 A: TBA
 
 Q: Where should input handling happen?
-A: TBA
+A: TBA -- Should be passed down GDScript probably
 
 Q: What are our priorities? Is it generality? Specific game implementation? Commercial plugin? Learning? "Is it possible" mentality?
 A: TBA
@@ -18,4 +18,7 @@ Q: Is it worth using GGPO over custom lockstep / rollback implementation?
 A: TBA
 
 Q: How much of Godot network layer is useful in a p2p context?
+A: TBA
+
+Q: Why is the running version of our game not using SceneTreeLockstep? Can we verify it's not?
 A: TBA
