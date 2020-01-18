@@ -124,6 +124,7 @@
 #include "scene/main/instance_placeholder.h"
 #include "scene/main/resource_preloader.h"
 #include "scene/main/scene_tree.h"
+#include "scene/main/scene_tree_lockstep.h"
 #include "scene/main/timer.h"
 #include "scene/main/viewport.h"
 #include "scene/resources/audio_stream_sample.h"
@@ -544,6 +545,7 @@ void register_scene_types() {
 	ClassDB::register_virtual_class<CanvasItem>();
 	ClassDB::register_class<CanvasItemMaterial>();
 	SceneTree::add_idle_callback(CanvasItemMaterial::flush_changes);
+    SceneTreeLockstep::add_idle_callback(CanvasItemMaterial::flush_changes);
 	CanvasItemMaterial::init_shaders();
 	ClassDB::register_class<Node2D>();
 	ClassDB::register_class<CPUParticles2D>();
@@ -599,6 +601,7 @@ void register_scene_types() {
 	ClassDB::register_virtual_class<Shader>();
 	ClassDB::register_class<ParticlesMaterial>();
 	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
+    SceneTreeLockstep::add_idle_callback(ParticlesMaterial::flush_changes);
 	ParticlesMaterial::init_shaders();
 
 	ClassDB::register_virtual_class<Mesh>();
@@ -619,7 +622,8 @@ void register_scene_types() {
 	ClassDB::register_class<PointMesh>();
 	ClassDB::register_virtual_class<Material>();
 	ClassDB::register_class<SpatialMaterial>();
-	SceneTree::add_idle_callback(SpatialMaterial::flush_changes);
+    SceneTree::add_idle_callback(SpatialMaterial::flush_changes);
+    SceneTreeLockstep::add_idle_callback(SpatialMaterial::flush_changes);
 	SpatialMaterial::init_shaders();
 
 	ClassDB::register_class<MeshLibrary>();
@@ -722,6 +726,10 @@ void register_scene_types() {
 	ClassDB::register_class<PackedScene>();
 
 	ClassDB::register_class<SceneTree>();
+    ClassDB::register_class<SceneTreeLockstep>();
+    ClassDB::register_class<GGPONetwork>();
+    ClassDB::register_class<PFGInput>();
+    ClassDB::register_class<PFGState>();
 	ClassDB::register_virtual_class<SceneTreeTimer>(); //sorry, you can't create it
 
 #ifndef DISABLE_DEPRECATED
@@ -809,4 +817,8 @@ void unregister_scene_types() {
 	ParticlesMaterial::finish_shaders();
 	CanvasItemMaterial::finish_shaders();
 	SceneStringNames::free();
+}
+
+void register_scene_singletons() {
+    Engine::get_singleton()->add_singleton(Engine::Singleton("GGPONetwork", GGPONetwork::get_singleton()));
 }

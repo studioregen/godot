@@ -37,6 +37,7 @@
 #include "scene/resources/surface_tool.h"
 #include "scene/scene_string_names.h"
 #include "servers/visual_server.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 bool GridMap::_set(const StringName &p_name, const Variant &p_value) {
 
@@ -309,7 +310,7 @@ void GridMap::set_cell_item(int p_x, int p_y, int p_z, int p_item, int p_rot) {
 		PhysicsServer::get_singleton()->body_attach_object_instance_id(g->static_body, get_instance_id());
 		PhysicsServer::get_singleton()->body_set_collision_layer(g->static_body, collision_layer);
 		PhysicsServer::get_singleton()->body_set_collision_mask(g->static_body, collision_mask);
-		SceneTree *st = SceneTree::get_singleton();
+        SceneTree *st = SceneTreeLockstep::get_singleton();
 
 		if (st && st->is_debugging_collisions_hint()) {
 
@@ -553,7 +554,7 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 		arr[VS::ARRAY_VERTEX] = col_debug;
 
 		VS::get_singleton()->mesh_add_surface_from_arrays(g.collision_debug, VS::PRIMITIVE_LINES, arr);
-		SceneTree *st = SceneTree::get_singleton();
+        SceneTree *st = SceneTreeLockstep::get_singleton();
 		if (st) {
 			VS::get_singleton()->mesh_surface_set_material(g.collision_debug, 0, st->get_debug_collision_material()->get_rid());
 		}

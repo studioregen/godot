@@ -8,13 +8,20 @@
 
 /* As a replacement for proper reusable code, just make some basic classes for testing. */
 class PFGInput : public Object {
-    GDCLASS(PFGInput, Object);
+    GDCLASS(PFGInput, Object)
+
 public:
 	int left_right;
 	int up_down;
 	bool swap;
 
     static void _bind_methods();
+    void set_left_right(int lr) { left_right = lr; }
+    int get_left_right() { return left_right; }
+    void set_up_down(int ud) { up_down = ud; }
+    int get_up_down() { return up_down; }
+    void set_swap(bool b) { swap = b; }
+    bool get_swap() { return swap; }
 };
 
 class PFGState : public Object {
@@ -37,11 +44,11 @@ public:
 };
 
 
-class Peer2PeerNetwork : public Object {
-    GDCLASS(Peer2PeerNetwork, Object);
+class GGPONetwork : public Object {
+    GDCLASS(GGPONetwork, Object)
 
 private:
-    static Peer2PeerNetwork* instance;
+    static GGPONetwork* instance;
     class SceneTreeLockstep* tree;
 
     GGPOSession* session;
@@ -55,7 +62,7 @@ private:
     void set_tree(SceneTreeLockstep* tree) { tree = tree; }
 
 public:
-    static Peer2PeerNetwork* get_singleton();
+    static GGPONetwork* get_singleton();
 
     enum PlayerType {
         LOCAL_PLAYER,
@@ -67,9 +74,10 @@ public:
     bool add_player(PlayerType type, String ip_address = ""); /* Return player handle? */
     bool add_local_input(uint8_t index, PFGInput* input);
     bool synchronize_inputs(PFGInput* inputs);
+    bool advance_frame();
     void close_session();
 
-    SceneTreeLockstep *get_tree();
+    SceneTreeLockstep* get_tree();
     uint8_t get_current_player_count() { return current_player_count; }
     bool is_player_local(uint8_t id);
     bool is_game_in_session();
@@ -89,6 +97,8 @@ public:
 
     static void _bind_methods();
 };
+
+VARIANT_ENUM_CAST(GGPONetwork::PlayerType);
 
 
 class SceneTreeLockstep : public SceneTree {
@@ -112,6 +122,8 @@ public:
             game_state.clone_data(*new_state_values);
         }
     }
+
+    Object* get_ggpo() { return GGPONetwork::get_singleton(); }
 };
 
 #endif // SCENE_TREE_LOCKSTEP_H

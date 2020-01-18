@@ -37,6 +37,7 @@
 #include "instance_placeholder.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/scene_string_names.h"
+#include "scene/main/scene_tree_lockstep.h"
 #include "viewport.h"
 
 #ifdef TOOLS_ENABLED
@@ -2612,7 +2613,7 @@ void Node::queue_delete() {
 	if (is_inside_tree()) {
 		get_tree()->queue_delete(this);
 	} else {
-		SceneTree::get_singleton()->queue_delete(this);
+        SceneTreeLockstep::get_singleton()->queue_delete(this);
 	}
 }
 

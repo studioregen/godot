@@ -40,6 +40,7 @@
 #include "scene/gui/control.h"
 #include "scene/gui/label.h"
 #include "scene/gui/tab_container.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor, UndoRedo *p_undo_redo) {
 
@@ -472,7 +473,7 @@ String RenameDialog::_substitute(const String &subject, const Node *node, int co
 	int current = EditorNode::get_singleton()->get_editor_data().get_edited_scene();
 	result = result.replace("${SCENE}", EditorNode::get_singleton()->get_editor_data().get_scene_title(current));
 
-	Node *root_node = SceneTree::get_singleton()->get_edited_scene_root();
+    Node *root_node = SceneTreeLockstep::get_singleton()->get_edited_scene_root();
 	if (root_node) {
 		result = result.replace("${ROOT}", root_node->get_name());
 	}
@@ -604,7 +605,7 @@ void RenameDialog::rename() {
 
 	EditorSelection *editor_selection = EditorNode::get_singleton()->get_editor_selection();
 	Array selected_node_list = editor_selection->get_selected_nodes();
-	Node *root_node = SceneTree::get_singleton()->get_edited_scene_root();
+    Node *root_node = SceneTreeLockstep::get_singleton()->get_edited_scene_root();
 
 	global_count = spn_count_start->get_value();
 	to_rename.clear();

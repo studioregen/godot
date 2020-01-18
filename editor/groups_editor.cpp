@@ -35,6 +35,7 @@
 #include "scene/gui/box_container.h"
 #include "scene/gui/label.h"
 #include "scene/resources/packed_scene.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 void GroupDialog::_group_selected() {
 	nodes_to_add->clear();
@@ -409,7 +410,7 @@ void GroupDialog::_bind_methods() {
 GroupDialog::GroupDialog() {
 	set_custom_minimum_size(Size2(600, 400) * EDSCALE);
 
-	scene_tree = SceneTree::get_singleton();
+    scene_tree = SceneTreeLockstep::get_singleton();
 
 	VBoxContainer *vbc = memnew(VBoxContainer);
 	add_child(vbc);

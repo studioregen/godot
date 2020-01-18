@@ -1599,7 +1599,7 @@ bool Main::start() {
 	}
 
 	if (!main_loop && main_loop_type == "")
-		main_loop_type = "SceneTree";
+        main_loop_type = "SceneTreeLockstep";
 
 	if (!main_loop) {
 		if (!ClassDB::class_exists(main_loop_type)) {
@@ -1619,7 +1619,7 @@ bool Main::start() {
 		}
 	}
 
-	if (main_loop->is_class("SceneTree")) {
+    if (main_loop->is_class("SceneTree") || main_loop->is_class("SceneTreeLockstep")) {
 
 		SceneTree *sml = Object::cast_to<SceneTree>(main_loop);
 

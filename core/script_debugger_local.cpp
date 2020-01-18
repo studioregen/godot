@@ -32,6 +32,7 @@
 
 #include "core/os/os.h"
 #include "scene/main/scene_tree.h"
+#include "scene/main/scene_tree_lockstep.h"
 
 void ScriptDebuggerLocal::debug(ScriptLanguage *p_script, bool p_can_continue, bool p_is_error_breakpoint) {
 
@@ -211,7 +212,7 @@ void ScriptDebuggerLocal::debug(ScriptLanguage *p_script, bool p_can_continue, b
 			ScriptDebugger::get_singleton()->set_depth(-1);
 			ScriptDebugger::get_singleton()->set_lines_left(-1);
 
-			SceneTree::get_singleton()->quit();
+            SceneTreeLockstep::get_singleton()->quit();
 			break;
 		} else if (line.begins_with("delete")) {
 
