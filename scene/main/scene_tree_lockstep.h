@@ -6,95 +6,13 @@
 #include "scene_tree.h"
 #include "thirdparty/ggpo/src/include/ggponet.h"
 
-/* As a replacement for proper reusable code, just make some basic classes for testing. */
-class PFGInput : public Object {
-    GDCLASS(PFGInput, Object)
-
-public:
-    struct SerializedGGPOInput {
-        uint16_t buttons;
-    };
-
-private:
-    SerializedGGPOInput ggpo_inputs;
-
-public:
-    enum Buttons {
-        UP = 1,
-        DOWN = 1 << 2,
-        LEFT = 1 << 3,
-        RIGHT = 1 << 4,
-        GRAB = 1 << 5
-    };
-
-    static void _bind_methods();
-
-    void press_button(Buttons btn_id) {
-        ggpo_inputs.buttons |= btn_id;
-    }
-
-    void flush_input_state() {
-        ggpo_inputs = SerializedGGPOInput{0};
-    }
-
-    SerializedGGPOInput get_ggpo_input() {
-        return ggpo_inputs;
-    }
-
-    void set_ggpo_inputs(SerializedGGPOInput p_ggpo_inputs) {
-        ggpo_inputs = p_ggpo_inputs;
-    }
+struct GGPOInput {
+    uint32_t buttons = 0;
 };
 
-VARIANT_ENUM_CAST(PFGInput::Buttons);
-
-class PFGState : public Object {
-    GDCLASS(PFGState, Object);
-public:
-    struct SerializedGGPOPlayerState {
-        int x;
-        int y;
-        bool is_grabbing;
-    };
-
-    struct SerializedGGPOState {
-        SerializedGGPOPlayerState players[2];
-    };
-
-    SerializedGGPOState gameState;
-
-    static void _bind_methods();
-
-    void serialize_gamestate(Dictionary dictGameState) {
-        for (int i = 0; i < 2; i++ ){
-            gameState.players[i].x = dictGameState[0]["x"];
-            gameState.players[i].y = dictGameState[0]["y"];
-            gameState.players[i].is_grabbing = dictGameState[0]["is_grabbing"];
-        }
-    }
-
-    Dictionary deserialize_gamestate() {
-        Dictionary dict = Dictionary();
-
-        for (int i = 0; i < 2; i++){
-            dict[i] = Dictionary();
-            dict[i].set("x", gameState.players[i].x);
-            dict[i].set("y", gameState.players[i].y);
-            dict[i].set("is_grabbing", gameState.players[i].is_grabbing);
-        }
-
-        return dict;
-    }
-
-    SerializedGGPOState get_current_gamestate() {
-        return gameState;
-    }
-
-    SerializedGGPOState* get_current_gamestate_ptr() {
-        return &gameState;
-    }
+struct GGPOState {
+    bool test = false;
 };
-
 
 class GGPONetwork : public Object {
     GDCLASS(GGPONetwork, Object)
@@ -124,8 +42,9 @@ public:
     //These functions need to be defined, should wrap around GGPOs concept of a session.
     bool start_session(Object *tree, String name, uint16_t num_players, uint16_t udp_port);
     bool add_player(PlayerType type, String ip_address = ""); /* Return player handle? */
-    bool add_local_input(uint8_t index, PFGInput::SerializedGGPOInput* input);
-    bool synchronize_inputs(PFGInput::SerializedGGPOInput* inputs);
+    bool add_local_input(uint8_t index, GGPOInput* input);
+    bool synchronize_inputs(GGPOInput* inputs);
+    bool idle(uint64_t timeoutMS);
     bool advance_frame();
     void close_session();
 
@@ -161,18 +80,14 @@ private:
     float fixed_delta;
 
 public:
-    PFGState game_state; // placeholder state for serialization
+    GGPOState game_state; // placeholder state for serialization
 
     bool iteration(float p_time) override;
+    bool idle(float p_time) override;
     bool advance_frame(int);
-    void request_inputs_for_local_player(PFGInput* ob, uint8_t player_id);
+    void request_inputs_for_local_player(GGPOInput &input, uint8_t player_id);
 
     static void _bind_methods();
-
-    Dictionary get_game_state() { return game_state.deserialize_gamestate(); }
-    void set_game_state(Dictionary new_state_object) {
-        game_state.serialize_gamestate(new_state_object);
-    }
 
     Object* get_ggpo() { return GGPONetwork::get_singleton(); }
 };

@@ -728,8 +728,6 @@ void register_scene_types() {
 	ClassDB::register_class<SceneTree>();
     ClassDB::register_class<SceneTreeLockstep>();
     ClassDB::register_class<GGPONetwork>();
-    ClassDB::register_class<PFGInput>();
-    ClassDB::register_class<PFGState>();
 	ClassDB::register_virtual_class<SceneTreeTimer>(); //sorry, you can't create it
 
 #ifndef DISABLE_DEPRECATED
