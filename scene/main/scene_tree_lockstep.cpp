@@ -4,22 +4,19 @@
 
 GGPONetwork* GGPONetwork::instance = nullptr;
 
-
 void PFGInput::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("set_left_right", "dir"), &PFGInput::set_left_right);
-    ClassDB::bind_method(D_METHOD("get_left_right"), &PFGInput::get_left_right);
-    ClassDB::bind_method(D_METHOD("set_up_down", "dir"), &PFGInput::set_up_down);
-    ClassDB::bind_method(D_METHOD("get_up_down"), &PFGInput::get_up_down);
-    ClassDB::bind_method(D_METHOD("set_swap", "grab"), &PFGInput::set_swap);
-    ClassDB::bind_method(D_METHOD("get_swap"), &PFGInput::get_swap);
+    ClassDB::bind_method(D_METHOD("press_button", "button_flags"), &PFGInput::press_button);
 
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "left_right"), "set_left_right", "get_left_right");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "up_down"), "set_up_down", "get_up_down");
-    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "swap"), "set_swap", "get_swap");
+    BIND_ENUM_CONSTANT(UP);
+    BIND_ENUM_CONSTANT(DOWN);
+    BIND_ENUM_CONSTANT(LEFT);
+    BIND_ENUM_CONSTANT(RIGHT);
+    BIND_ENUM_CONSTANT(GRAB);
 }
 
 void PFGState::_bind_methods() {
-
+    ClassDB::bind_method(D_METHOD("serialize_gamestate", "state_dictionary"), &PFGState::serialize_gamestate);
+    ClassDB::bind_method(D_METHOD("deserialize_gamestate"), &PFGState::deserialize_gamestate);
 }
 
 GGPONetwork* GGPONetwork::get_singleton() {
@@ -32,29 +29,36 @@ GGPONetwork* GGPONetwork::get_singleton() {
 
 bool GGPONetwork::start_session(Object* tree_object, String name, uint16_t num_players, uint16_t udp_port) {
     SceneTreeLockstep* tree = Object::cast_to<SceneTreeLockstep>(tree_object);
-    if (tree != nullptr) { //bail if tree is invalid.
-        set_tree(tree);
-    } else {
+    if (tree == nullptr) {
         return false;
     }
+
+    set_tree(tree);
 
     GGPOErrorCode errcode;
     GGPOSessionCallbacks callbacks;
 
-    callbacks.begin_game = GGPONetwork::cb_begin_game;
-    callbacks.advance_frame = GGPONetwork::cb_advance_frame;
-    callbacks.load_game_state = GGPONetwork::cb_load_game_state;
-    callbacks.save_game_state = GGPONetwork::cb_save_game_state;
-    callbacks.free_buffer = GGPONetwork::cb_free_game_state;
-    callbacks.on_event = GGPONetwork::cb_ggpo_event;
+    callbacks.begin_game = &GGPONetwork::cb_begin_game;
+    callbacks.advance_frame = &GGPONetwork::cb_advance_frame;
+    callbacks.load_game_state = &GGPONetwork::cb_load_game_state;
+    callbacks.save_game_state = &GGPONetwork::cb_save_game_state;
+    callbacks.log_game_state = &GGPONetwork::cb_log_game_state;
+    callbacks.free_buffer = &GGPONetwork::cb_free_game_state;
+    callbacks.on_event = &GGPONetwork::cb_ggpo_event;
 
-    errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(PFGInput), udp_port);
+    Array string_args = Array();
+    string_args.push_back(sizeof(PFGInput::SerializedGGPOInput));
+    print_line(String("SerializedGGPOInput {0} - SomeObject {1}").format(string_args));
+
+    //sizeof Godot Object failing.
+    errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(PFGInput::SerializedGGPOInput), udp_port);
+    print_line("Testing...");
 
     total_player_count = num_players;
     current_player_count = 0;
     port = udp_port;
 
-    return true;
+    return GGPO_SUCCEEDED(errcode);
 }
 
 bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
@@ -75,21 +79,24 @@ bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
     return true;
 }
 
-bool GGPONetwork::add_local_input(uint8_t index, PFGInput* input) {
+bool GGPONetwork::add_local_input(uint8_t index, PFGInput::SerializedGGPOInput* input) {
     if ( index >= current_player_count ) {
         return false;
     }
 
     GGPOErrorCode err;
-    err = ggpo_add_local_input(session, handles[index], input, sizeof(PFGInput));
+    err = ggpo_add_local_input(session, handles[index], input, sizeof(PFGInput::SerializedGGPOInput));
 
     return GGPO_SUCCEEDED(err);
 }
 
-bool GGPONetwork::synchronize_inputs(PFGInput* inputs) {
+bool GGPONetwork::synchronize_inputs(PFGInput::SerializedGGPOInput* inputs) {
     GGPOErrorCode err;
     int disconnection_flags;
-    err = ggpo_synchronize_input(session, inputs, sizeof(PFGInput) * current_player_count, &disconnection_flags);
+
+    err = ggpo_synchronize_input(session, inputs, sizeof(PFGInput::SerializedGGPOInput) * current_player_count, &disconnection_flags);
+    //NOT SYNCHRONIZED ERROR....
+
     return GGPO_SUCCEEDED(err);
 }
 
@@ -134,15 +141,19 @@ bool GGPONetwork::cb_advance_frame(int someInt) {
 }
 
 bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, int *out_checksum, int frame) {
-    PFGState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
+    PFGState::SerializedGGPOState *state = GGPONetwork::get_singleton()->get_tree()->game_state.get_current_gamestate_ptr();
     *out_len = sizeof(*state);
     copymem(*out_buffer, state, *out_len);
     return true;
 }
 
 bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
-    PFGState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
+    PFGState::SerializedGGPOState *state = GGPONetwork::get_singleton()->get_tree()->game_state.get_current_gamestate_ptr();
     copymem(state, buffer, len);
+    return true;
+}
+
+bool GGPONetwork::cb_log_game_state(char *filename, unsigned char *buffer, int length) {
     return true;
 }
 
@@ -182,15 +193,18 @@ bool SceneTreeLockstep::iteration(float p_time) {
         return SceneTree::iteration(p_time);
     }
 
-    PFGInput inputs[ggpo->get_current_player_count()];
+    PFGInput::SerializedGGPOInput inputs[ggpo->get_current_player_count()];
 
     //We need to poll for local inputs
     //Sends this frame's local input to ggpo (or any other rollback network)
     uint8_t local_player_id = 0;
     for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++) {
         if(ggpo->is_player_local(i)) {
+            PFGInput inputContainer = PFGInput();
+            inputContainer.set_ggpo_inputs(inputs[i]);
             //FILL IN INPUT HERE;
-            request_inputs_for_local_player(&inputs[i], local_player_id);
+            request_inputs_for_local_player(&inputContainer, local_player_id);
+            inputs[i] = inputContainer.get_ggpo_input();
             ggpo->add_local_input(i, &inputs[i]);
             local_player_id++;
         }
@@ -201,8 +215,9 @@ bool SceneTreeLockstep::iteration(float p_time) {
         ggpo->advance_frame();
 		return shouldQuit;
 	} else {
+        print_line("Not working...");
         return false;
-	}
+    }
 }
 
 /* This function wraps the SceneTree version of iteration so that,
@@ -214,7 +229,7 @@ bool SceneTreeLockstep::iteration(float p_time) {
 bool SceneTreeLockstep::advance_frame(int) {
     GGPONetwork* network = GGPONetwork::get_singleton();
     const int players = network->get_current_player_count();
-    PFGInput inputs[players];
+    PFGInput::SerializedGGPOInput inputs[players];
 
     network->synchronize_inputs(inputs);
     SceneTree::iteration(fixed_delta);
@@ -238,3 +253,4 @@ void SceneTreeLockstep::_bind_methods() {
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_state"), "set_game_state", "get_game_state");
 }
+
