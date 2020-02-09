@@ -81,7 +81,9 @@ bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
     }
 
     if (GGPO_SUCCEEDED(err)) {
-        current_player_count++; //Keeping track of current number of players initialized.
+        //Keeping track of current number of players initialized.
+        remote_player_count = (players[current_player_count].type == GGPO_PLAYERTYPE_REMOTE) ? remote_player_count + 1 : remote_player_count;
+        current_player_count++;
         return true;
     } else {
         Array string_args = Array();
@@ -185,16 +187,27 @@ bool GGPONetwork::cb_advance_frame(int someInt) {
 
 bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, int *out_checksum, int frame) {
     print_line("cb_save_game_state");
-    GGPOState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
+    if (!GGPONetwork::get_singleton()->get_tree()) {
+        print_line("No tree?");
+        return false;
+    }
+
+    GGPOState *state = GGPONetwork::get_singleton()->get_tree()->get_game_state_ptr();
     *out_len = sizeof(*state);
-    memcpy(*out_buffer, state, *out_len);
+    *out_buffer = (unsigned char *)memnew(GGPOState);
+
+    if (!*out_buffer) {
+       return false;
+    }
+
+    copymem(*out_buffer, state, *out_len);
     return true;
 }
 
 bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
     print_line("cb_load_game_state");
     GGPOState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
-    memcpy(state, buffer, len);
+    copymem(state, buffer, len);
     return true;
 }
 
@@ -205,7 +218,7 @@ bool GGPONetwork::cb_log_game_state(char *filename, unsigned char *buffer, int l
 
 void GGPONetwork::cb_free_game_state(void *buffer) {
     print_line("cb_free_game_state");
-    free(buffer);
+    memfree(buffer);
 }
 
 bool GGPONetwork::cb_ggpo_event(GGPOEvent* info) {
@@ -249,8 +262,10 @@ bool SceneTreeLockstep::iteration(float p_time) {
         }
     }
 
-    if (ggpo->synchronize_inputs(inputs)) { //Gets both remote and local (+frameDelay) inputs into array.
+    if (!ggpo->has_remote_players() || ggpo->synchronize_inputs(inputs)) { //Gets both remote and local (+frameDelay) inputs into array.
         bool shouldQuit = SceneTree::iteration(fixed_delta);
+        lockstep_update(inputs, ggpo->get_current_player_count(), fixed_delta);
+        write_gamestate();
         ggpo->advance_frame();
 		return shouldQuit;
 	} else {
@@ -265,7 +280,7 @@ bool SceneTreeLockstep::idle(float p_time) {
     const uint64_t after = OS::get_singleton()->get_ticks_msec();
     const uint64_t timeLeft = (p_time * 1000) - (after - before);
 
-
+    /* use remainder of "idle" time by handling GGPO networking tasks. */
     GGPONetwork* ggpo = GGPONetwork::get_singleton();
     if (ggpo->is_game_in_session()) {
         ggpo->idle(timeLeft);
@@ -291,16 +306,130 @@ bool SceneTreeLockstep::advance_frame(int) {
 }
 
 void SceneTreeLockstep::request_inputs_for_local_player(GGPOInput &input, uint8_t player_id) {
-    /*Array args;
-    args.append(ob);
+
+    Dictionary input_dict = serialize_ggpo_input(input);
+    Array args;
+    args.append(input_dict);
     args.append(player_id);
 
     if( get_root() )
-        get_root()->propagate_call("fill_local_player_input", args );*/
+        get_root()->propagate_call("fill_local_player_input", args );
 
+    input = deserialize_ggpo_input(input_dict);
+
+}
+
+void SceneTreeLockstep::lockstep_update(GGPOInput *inputs, uint8_t num_players, float p_time) {
+    Dictionary all_inputs = Dictionary();
+
+    for (int player_id = 0; player_id < num_players; player_id++) {
+        all_inputs[player_id] = serialize_ggpo_input(inputs[player_id]);
+    }
+
+    Array args;
+    args.append(all_inputs);
+    args.append(p_time);
+
+    if( get_root() )
+        get_root()->propagate_call("_lockstep_update", args);
+
+    for (int player_id = 0; player_id < num_players; player_id++) {
+        inputs[player_id] = deserialize_ggpo_input(all_inputs[player_id]);
+    }
+}
+
+void SceneTreeLockstep::write_gamestate() {
+    Dictionary dict_game_state = serialize_ggpo_gamestate(game_state);
+
+    Array args;
+    args.append(dict_game_state);
+
+    if( get_root() )
+        get_root()->propagate_call("_gamestate_update", args);
+
+    print_line( String("write_gamestate {0}").format(args) );
+
+    game_state = deserialize_ggpo_gamestate(dict_game_state);
+
+    args.clear();
+    args.append(0);
+    args.append(game_state.player_state[0].x);
+    args.append(game_state.player_state[0].y);
+    args.append(1);
+    args.append(game_state.player_state[1].x);
+    args.append(game_state.player_state[1].y);
+    print_line( String("write_gamestate -- state values {0}: {1} {2}, {3}: {4} {5}").format(args) );
+}
+
+
+void SceneTreeLockstep::set_gamestate(Dictionary dict) {
+    game_state = deserialize_ggpo_gamestate(dict);
+}
+
+Dictionary SceneTreeLockstep::serialize_ggpo_input( GGPOInput& input ) {
+    Dictionary input_dict = Dictionary();
+
+    {
+        input_dict["up"] = ((input.buttons & 1) > 0);
+        input_dict["down"] = ((input.buttons & 1 << 2) > 0);
+        input_dict["left"] = ((input.buttons & 1 << 3) > 0);
+        input_dict["right"] = ((input.buttons & 1 << 4) > 0);
+    }
+
+    return input_dict;
+}
+
+GGPOInput SceneTreeLockstep::deserialize_ggpo_input( Dictionary input_dict ) {
+    GGPOInput input;
+
+    Array fmt;
+    fmt.append(input_dict);
+    print_line( String("deserialize_ggpo_input {0}").format(fmt));
+
+    {
+        input.buttons |= input_dict["up"] ? 1 : 0;
+        input.buttons |= input_dict["down"] ? 1 << 2 : 0;
+        input.buttons |= input_dict["left"] ? 1 << 3 : 0;
+        input.buttons |= input_dict["right"] ? 1 << 4 : 0;
+    }
+
+    return input;
+}
+
+Dictionary SceneTreeLockstep::serialize_ggpo_gamestate(GGPOState &state) {
+    Dictionary state_dict;
+
+    {
+        for (int i = 0; i < 2; i++){
+            Dictionary player;
+            player["x"] = state.player_state[i].x;
+            player["y"] =  state.player_state[i].y;
+            state_dict[i] = player;
+        }
+    }
+
+    return state_dict;
+}
+
+GGPOState SceneTreeLockstep::deserialize_ggpo_gamestate(Dictionary dictionary) {
+    GGPOState state = GGPOState();
+
+    {
+        for (int i = 0; i < 2; i++){
+            print_line(String("{0}").format(dictionary));
+            state.player_state[i].x = (int)dictionary[i].get("x");
+            state.player_state[i].y = (int)dictionary[i].get("y");
+        }
+    }
+
+    return state;
 }
 
 void SceneTreeLockstep::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
+    ClassDB::bind_method(D_METHOD("set_gamestate"), &SceneTreeLockstep::set_gamestate);
 }
+
+
+
 
