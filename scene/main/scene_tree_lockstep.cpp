@@ -2,6 +2,7 @@
 #include "core/engine.h"
 #include "viewport.h"
 #include "core/os/os.h"
+#include "core/io/marshalls.h"
 
 GGPONetwork* GGPONetwork::instance = nullptr;
 
@@ -32,18 +33,19 @@ bool GGPONetwork::start_session(Object* tree_object, String name, uint16_t num_p
     callbacks.free_buffer = &GGPONetwork::cb_free_game_state;
     callbacks.on_event = &GGPONetwork::cb_ggpo_event;
 
-    Array string_args = Array();
-    string_args.push_back(sizeof(GGPOInput));
-
-
     //sizeof Godot Object failing.
     errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(GGPOInput), udp_port);
-    string_args.push_back(errcode);
-    string_args.push_back(num_players);
-    print_line(String("SerializedGGPOInput {0}, errcode {1}, players {2}").format(string_args));
 
-    total_player_count = num_players;
-    current_player_count = 0;
+    if (!GGPO_SUCCEEDED(errcode) ) {
+        Array string_args = Array();
+        string_args.push_back(sizeof(GGPOInput));
+        string_args.push_back(errcode);
+        string_args.push_back(num_players);
+        print_line(String("SerializedGGPOInput {0}, errcode {1}, players {2}").format(string_args));
+    }
+
+    details = new GGPOSessionDetails(num_players);
+    details->current_player_count = 0;
     port = udp_port;
 
     ggpo_set_disconnect_timeout(session, 3000);
@@ -52,8 +54,48 @@ bool GGPONetwork::start_session(Object* tree_object, String name, uint16_t num_p
     return GGPO_SUCCEEDED(errcode);
 }
 
+bool GGPONetwork::start_sync_test(Object* tree_object, String name, uint16_t num_players) {
+    SceneTreeLockstep* tree = Object::cast_to<SceneTreeLockstep>(tree_object);
+    if (tree == nullptr) {
+        return false;
+    }
+
+    set_tree(tree);
+
+    GGPOErrorCode errcode;
+    GGPOSessionCallbacks callbacks;
+
+    callbacks.begin_game = &GGPONetwork::cb_begin_game;
+    callbacks.advance_frame = &GGPONetwork::cb_advance_frame;
+    callbacks.load_game_state = &GGPONetwork::cb_load_game_state;
+    callbacks.save_game_state = &GGPONetwork::cb_save_game_state;
+    callbacks.log_game_state = &GGPONetwork::cb_log_game_state;
+    callbacks.free_buffer = &GGPONetwork::cb_free_game_state;
+    callbacks.on_event = &GGPONetwork::cb_ggpo_event;
+
+    errcode = ggpo_start_synctest(&session, &callbacks, "sync_test", num_players, sizeof(GGPOInput), 1);
+
+    if (!GGPO_SUCCEEDED(errcode)) {
+        Array string_args = Array();
+        string_args.push_back(sizeof(GGPOInput));
+        string_args.push_back(errcode);
+        string_args.push_back(num_players);
+        print_line(String("SyncTest GGPOInputSize {0}, errcode {1}, players {2}").format(string_args));
+    }
+
+    details = new GGPOSessionDetails(num_players, true);
+    details->current_player_count = 0;
+
+    ggpo_set_disconnect_timeout(session, 3000);
+    ggpo_set_disconnect_notify_start(session, 1000);
+
+    return GGPO_SUCCEEDED(errcode);
+}
+
 bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
-    if (current_player_count >= total_player_count) {
+    const uint8_t current_player_count = details->current_player_count;
+
+    if (details->current_player_count >= details->max_player_count) {
         return false; // Can't have more players than we promised in the session initialization.
     }
 
@@ -71,7 +113,7 @@ bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
     handles[current_player_count] = handle;
 
     if (players[current_player_count].type == GGPO_PLAYERTYPE_LOCAL) {
-        GGPOErrorCode delayErr = ggpo_set_frame_delay(session, handles[current_player_count], 2);
+        GGPOErrorCode delayErr = ggpo_set_frame_delay(session, handles[current_player_count], 1);
 
         if (!GGPO_SUCCEEDED(delayErr)) {
             Array string_args = Array();
@@ -82,8 +124,8 @@ bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
 
     if (GGPO_SUCCEEDED(err)) {
         //Keeping track of current number of players initialized.
-        remote_player_count = (players[current_player_count].type == GGPO_PLAYERTYPE_REMOTE) ? remote_player_count + 1 : remote_player_count;
-        current_player_count++;
+        details->remote_player_count = (players[current_player_count].type == GGPO_PLAYERTYPE_REMOTE) ? details->remote_player_count + 1 : details->remote_player_count;
+        details->current_player_count++;
         return true;
     } else {
         Array string_args = Array();
@@ -94,7 +136,7 @@ bool GGPONetwork::add_player(GGPONetwork::PlayerType type, String ip_address) {
 }
 
 bool GGPONetwork::add_local_input(uint8_t index, GGPOInput* input) {
-    if ( index >= current_player_count ) {
+    if ( index >= get_current_player_count() ) {
         return false;
     }
 
@@ -114,7 +156,7 @@ bool GGPONetwork::synchronize_inputs(GGPOInput* inputs) {
     GGPOErrorCode err;
     int disconnection_flags;
 
-    err = ggpo_synchronize_input(session, inputs, sizeof(GGPOInput) * current_player_count, &disconnection_flags);
+    err = ggpo_synchronize_input(session, (void *) inputs, sizeof(GGPOInput) * details->max_player_count, &disconnection_flags);
 
     if (!GGPO_SUCCEEDED(err)) {
         Array string_args = Array();
@@ -151,8 +193,7 @@ bool GGPONetwork::advance_frame() {
 
 void GGPONetwork::close_session() {
     ggpo_close_session(session);
-    current_player_count = 0;
-    total_player_count = 0;
+    delete details;
     tree = nullptr;
 }
 
@@ -169,7 +210,11 @@ bool GGPONetwork::is_player_local(uint8_t id){
 }
 
 bool GGPONetwork::is_game_in_session() {
-    return (total_player_count > 0);
+    return details ? (details->max_player_count > 0) : false;
+}
+
+bool GGPONetwork::is_sync_testing() {
+    return details ? details->sync_testing : false;
 }
 
 
@@ -178,56 +223,95 @@ bool GGPONetwork::cb_begin_game(const char *game) {
     return true;
 }
 
-bool GGPONetwork::cb_advance_frame(int someInt) {
+bool GGPONetwork::cb_advance_frame(int flags) {
     //Would be nice if we could use godot's signal system to handle these callbacks!
-    print_line("cb_advance_frame");
-    GGPONetwork::get_singleton()->get_tree()->advance_frame(someInt);
+    //print_line("cb_advance_frame");
+    GGPONetwork::get_singleton()->get_tree()->advance_frame(flags);
     return true;
 }
 
 bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, int *out_checksum, int frame) {
-    print_line("cb_save_game_state");
+    //print_line("cb_save_game_state");
     if (!GGPONetwork::get_singleton()->get_tree()) {
         print_line("No tree?");
         return false;
     }
 
-    GGPOState *state = GGPONetwork::get_singleton()->get_tree()->get_game_state_ptr();
-    *out_len = sizeof(*state);
-    *out_buffer = (unsigned char *)memnew(GGPOState);
+    int length = 0;
+    Error err = encode_variant(GGPONetwork::get_singleton()->get_tree()->game_state, NULL, length, true);
+    *out_len = length;
+    *out_buffer = (unsigned char*)memalloc(*out_len);
 
-    if (!*out_buffer) {
+    if (!*out_buffer || err != OK) {
        return false;
     }
 
-    copymem(*out_buffer, state, *out_len);
+    encode_variant(GGPONetwork::get_singleton()->get_tree()->game_state, *out_buffer, *out_len, true);
     return true;
 }
 
 bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
-    print_line("cb_load_game_state");
-    GGPOState *state = &GGPONetwork::get_singleton()->get_tree()->game_state;
-    copymem(state, buffer, len);
+    //print_line("cb_load_game_state");
+    Variant var;
+    Error err = decode_variant(var, buffer, len, NULL, true);
+
+    if (err != OK) {
+        return false;
+    }
+
+    GGPONetwork::get_singleton()->get_tree()->load_game_state((Dictionary)var);
     return true;
 }
 
 bool GGPONetwork::cb_log_game_state(char *filename, unsigned char *buffer, int length) {
-    print_line("cb_log_game_state");
+    //print_line("cb_log_game_state");
     return true;
 }
 
 void GGPONetwork::cb_free_game_state(void *buffer) {
-    print_line("cb_free_game_state");
+    //print_line("cb_free_game_state");
     memfree(buffer);
 }
 
 bool GGPONetwork::cb_ggpo_event(GGPOEvent* info) {
-    print_line("cb_ggpo_event");
+    //print_line("cb_ggpo_event");
+    /*int progress;
+    switch (info->code) {
+    case GGPO_EVENTCODE_CONNECTED_TO_PEER:
+       ngs.SetConnectState(info->u.connected.player, Synchronizing);
+       break;
+    case GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER:
+       progress = 100 * info->u.synchronizing.count / info->u.synchronizing.total;
+       ngs.UpdateConnectProgress(info->u.synchronizing.player, progress);
+       break;
+    case GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER:
+       ngs.UpdateConnectProgress(info->u.synchronized.player, 100);
+       break;
+    case GGPO_EVENTCODE_RUNNING:
+       ngs.SetConnectState(Running);
+       renderer->SetStatusText("");
+       break;
+    case GGPO_EVENTCODE_CONNECTION_INTERRUPTED:
+       ngs.SetDisconnectTimeout(info->u.connection_interrupted.player,
+                                GetCurrentTimeMS(),
+                                info->u.connection_interrupted.disconnect_timeout);
+       break;
+    case GGPO_EVENTCODE_CONNECTION_RESUMED:
+       ngs.SetConnectState(info->u.connection_resumed.player, Running);
+       break;
+    case GGPO_EVENTCODE_DISCONNECTED_FROM_PEER:
+       ngs.SetConnectState(info->u.disconnected.player, Disconnected);
+       break;
+    case GGPO_EVENTCODE_TIMESYNC:
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000 * info->u.timesync.frames_ahead / 60));
+       break;
+    }*/
     return true;
 }
 
 void GGPONetwork::_bind_methods() {
     ClassDB::bind_method(D_METHOD("start_session", "tree", "name", "player_count", "port"), &GGPONetwork::start_session);
+    ClassDB::bind_method(D_METHOD("start_sync_test", "tree", "name", "player_count"), &GGPONetwork::start_sync_test);
     ClassDB::bind_method(D_METHOD("add_player", "player_locality", "ip_address"), &GGPONetwork::add_player);
     ClassDB::bind_method(D_METHOD("close_session"), &GGPONetwork::close_session);
 
@@ -250,26 +334,38 @@ bool SceneTreeLockstep::iteration(float p_time) {
         return SceneTree::iteration(p_time);
     }
 
-    GGPOInput inputs[ggpo->get_current_player_count()];
-
     //We need to poll for local inputs
     //Sends this frame's local input to ggpo (or any other rollback network)
-    for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++) {
-        inputs[i] = GGPOInput();
-        if(ggpo->is_player_local(i)) {
-            request_inputs_for_local_player(inputs[i], i);
-            ggpo->add_local_input(i, &inputs[i]);
+    bool inputs_accepted = true;
+    {
+        GGPOInput localInput = GGPOInput();
+        request_inputs_for_local_player(localInput, 0);
+
+        if (ggpo->is_sync_testing()){
+            localInput = GGPOInput::random();
+        }
+
+        for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++){
+            if (ggpo->is_player_local(i)) {
+                Array args = Array();
+                args.append(i);
+                if( !ggpo->add_local_input(i, &localInput) ) {
+                    print_line(String("Ignoring player input for {0} to catch up.").format(args));
+                    inputs_accepted = false;
+                }
+            }
         }
     }
 
-    if (!ggpo->has_remote_players() || ggpo->synchronize_inputs(inputs)) { //Gets both remote and local (+frameDelay) inputs into array.
+    GGPOInput inputs[ggpo->get_current_player_count()] = {GGPOInput(), GGPOInput()};
+
+    if (!ggpo->has_remote_players() || (ggpo->synchronize_inputs(inputs) && inputs_accepted)) { //Gets both remote and local (+frameDelay) inputs into array.
         bool shouldQuit = SceneTree::iteration(fixed_delta);
         lockstep_update(inputs, ggpo->get_current_player_count(), fixed_delta);
-        write_gamestate();
         ggpo->advance_frame();
 		return shouldQuit;
 	} else {
-        print_line("Not working...");
+        print_line("Stalled...");
         return false;
     }
 }
@@ -295,13 +391,15 @@ bool SceneTreeLockstep::idle(float p_time) {
  *
  * Iteration must be fixed & deterministic.
  */
-bool SceneTreeLockstep::advance_frame(int) {
+bool SceneTreeLockstep::advance_frame(int flags) {
     GGPONetwork* network = GGPONetwork::get_singleton();
     const int players = network->get_current_player_count();
     GGPOInput inputs[players];
 
     network->synchronize_inputs(inputs);
-    SceneTree::iteration(fixed_delta);
+    iteration(fixed_delta);
+    lockstep_update(inputs, network->get_current_player_count(), fixed_delta);
+
     return true;
 }
 
@@ -336,34 +434,35 @@ void SceneTreeLockstep::lockstep_update(GGPOInput *inputs, uint8_t num_players, 
     for (int player_id = 0; player_id < num_players; player_id++) {
         inputs[player_id] = deserialize_ggpo_input(all_inputs[player_id]);
     }
+
+    write_gamestate();
 }
 
 void SceneTreeLockstep::write_gamestate() {
-    Dictionary dict_game_state = serialize_ggpo_gamestate(game_state);
+    Dictionary dict_game_state = game_state;
 
     Array args;
     args.append(dict_game_state);
 
     if( get_root() )
-        get_root()->propagate_call("_gamestate_update", args);
+        get_root()->propagate_call("_serialize_game_state", args);
 
-    print_line( String("write_gamestate {0}").format(args) );
+    //print_line( String("write_gamestate {0}").format(args) );
 
-    game_state = deserialize_ggpo_gamestate(dict_game_state);
-
-    args.clear();
-    args.append(0);
-    args.append(game_state.player_state[0].x);
-    args.append(game_state.player_state[0].y);
-    args.append(1);
-    args.append(game_state.player_state[1].x);
-    args.append(game_state.player_state[1].y);
-    print_line( String("write_gamestate -- state values {0}: {1} {2}, {3}: {4} {5}").format(args) );
+    game_state = dict_game_state;
 }
 
 
-void SceneTreeLockstep::set_gamestate(Dictionary dict) {
-    game_state = deserialize_ggpo_gamestate(dict);
+void SceneTreeLockstep::load_game_state(Dictionary dict) {
+    game_state = dict;
+
+    print_line(String("{}").format(dict));
+
+    Array args;
+    args.append(game_state);
+
+    if( get_root() )
+        get_root()->propagate_call("_deserialize_game_state", args);
 }
 
 Dictionary SceneTreeLockstep::serialize_ggpo_input( GGPOInput& input ) {
@@ -384,7 +483,7 @@ GGPOInput SceneTreeLockstep::deserialize_ggpo_input( Dictionary input_dict ) {
 
     Array fmt;
     fmt.append(input_dict);
-    print_line( String("deserialize_ggpo_input {0}").format(fmt));
+    //print_line( String("deserialize_ggpo_input {0}").format(fmt));
 
     {
         input.buttons |= input_dict["up"] ? 1 : 0;
@@ -396,38 +495,9 @@ GGPOInput SceneTreeLockstep::deserialize_ggpo_input( Dictionary input_dict ) {
     return input;
 }
 
-Dictionary SceneTreeLockstep::serialize_ggpo_gamestate(GGPOState &state) {
-    Dictionary state_dict;
-
-    {
-        for (int i = 0; i < 2; i++){
-            Dictionary player;
-            player["x"] = state.player_state[i].x;
-            player["y"] =  state.player_state[i].y;
-            state_dict[i] = player;
-        }
-    }
-
-    return state_dict;
-}
-
-GGPOState SceneTreeLockstep::deserialize_ggpo_gamestate(Dictionary dictionary) {
-    GGPOState state = GGPOState();
-
-    {
-        for (int i = 0; i < 2; i++){
-            print_line(String("{0}").format(dictionary));
-            state.player_state[i].x = (int)dictionary[i].get("x");
-            state.player_state[i].y = (int)dictionary[i].get("y");
-        }
-    }
-
-    return state;
-}
-
 void SceneTreeLockstep::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
-    ClassDB::bind_method(D_METHOD("set_gamestate"), &SceneTreeLockstep::set_gamestate);
+    ClassDB::bind_method(D_METHOD("set_gamestate"), &SceneTreeLockstep::load_game_state);
 }
 
 
