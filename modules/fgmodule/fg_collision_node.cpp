@@ -69,6 +69,8 @@ void CollisionBox::_bind_methods()
 FGCollisionNode::FGCollisionNode(){
     area_id = Physics2DServer::get_singleton()->area_create();
     Physics2DServer::get_singleton()->area_attach_object_instance_id(area_id, get_instance_id());
+    set_notify_transform(true);
+    set_notify_local_transform(true);
     layer = 0;
     mask = 0;
     locked = false;
@@ -80,16 +82,49 @@ FGCollisionNode::~FGCollisionNode(){
 
 void FGCollisionNode::_notification(int p_what) {
     switch (p_what) {
+
     case NOTIFICATION_POSTINITIALIZE:{
     } break;
+
+    case NOTIFICATION_ENTER_TREE:{
+
+        Transform2D global_transform = get_global_transform();
+        Physics2DServer::get_singleton()->area_set_transform(area_id, global_transform);
+        RID space = get_world_2d()->get_space();
+        Physics2DServer::get_singleton()->area_set_space(area_id, space);
+    } break;
+
+    case NOTIFICATION_ENTER_CANVAS: {
+
+        Physics2DServer::get_singleton()->area_attach_canvas_instance_id(area_id, get_canvas_layer_instance_id());
+    } break;
+
+    case NOTIFICATION_TRANSFORM_CHANGED:{
+
+        Transform2D global_transform = get_global_transform();
+        Physics2DServer::get_singleton()->area_set_transform(area_id, global_transform);
+    } break;
+
+    case NOTIFICATION_EXIT_TREE:{
+
+        Physics2DServer::get_singleton()->area_set_space(area_id, RID());
+    } break;
+
     case NOTIFICATION_DRAW:{
-        if (Engine::get_singleton()->is_editor_hint()) {
+
+        if (/*Engine::get_singleton()->is_editor_hint()*/ true) {
             for(List<Ref<CollisionBox>>::Element *E = hitboxes.front(); E; E = E->next()) {
                 if (E->get().is_null()) continue;
                 draw_rect(Rect2(E->get()->get_x(), E->get()->get_y(), E->get()->get_width(), E->get()->get_height()), Color(1.0, 1.0, 1.0), false);
             }
         }
     } break;
+
+    case NOTIFICATION_EXIT_CANVAS: {
+
+        Physics2DServer::get_singleton()->area_attach_canvas_instance_id(area_id, 0);
+    } break;
+
     }
 }
 
@@ -153,12 +188,11 @@ void FGCollisionNode::set_monitoring(bool p_enable)
     monitoring = p_enable;
 
     if (monitoring) {
-        Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, this, SceneStringNames::get_singleton()->_body_inout);
-        Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, this, SceneStringNames::get_singleton()->_area_inout);
+        Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, this, "test_body_callback");
+        Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, this, "test_area_callback");
     } else {
         Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, NULL, StringName());
         Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, NULL, StringName());
-        //_clear_monitoring();
     }
 }
 
@@ -184,6 +218,18 @@ bool FGCollisionNode::is_monitorable() const
     return monitorable;
 }
 
+void FGCollisionNode::test_body_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
+{
+    print_line("mememe");
+}
+
+void FGCollisionNode::test_area_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
+{
+    Array a;
+    a.append(this->get_name());
+    print_line(String("momomo {0}").format(a));
+}
+
 void FGCollisionNode::_bind_methods()
 {
 
@@ -196,6 +242,17 @@ void FGCollisionNode::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_mask_flags", "flags"), &FGCollisionNode::set_mask_flags);
     ClassDB::bind_method(D_METHOD("get_mask_flags"), &FGCollisionNode::get_mask_flags);
 
+    ClassDB::bind_method(D_METHOD("set_monitoring", "enable"), &FGCollisionNode::set_monitoring);
+    ClassDB::bind_method(D_METHOD("is_monitoring"), &FGCollisionNode::is_monitoring);
+
+    ClassDB::bind_method(D_METHOD("set_monitorable", "enable"), &FGCollisionNode::set_monitorable);
+    ClassDB::bind_method(D_METHOD("is_monitorable"), &FGCollisionNode::is_monitorable);
+
+    ClassDB::bind_method(D_METHOD("test_body_callback", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::test_body_callback);
+    ClassDB::bind_method(D_METHOD("test_area_callback", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::test_area_callback);
+
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "monitoring"), "set_monitoring", "is_monitoring");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "monitorable"), "set_monitorable", "is_monitorable");
 
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "collision_hit_boxes", PROPERTY_HINT_RESOURCE_TYPE, "17/17:CollisionBox", (PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE), "CollisionBox"), "set_hit_boxes", "get_hit_boxes");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_layer_flags", "get_layer_flags");
@@ -234,3 +291,6 @@ void FGCollisionNode::rewrite_box_list(List<Ref<CollisionBox>> &list_to_change, 
         }
     }
 }
+
+// =========== AREA_2D COPY ============
+

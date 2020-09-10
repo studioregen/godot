@@ -404,12 +404,12 @@ void Area2D::set_monitoring(bool p_enable) {
 
 	if (monitoring) {
 
-		Physics2DServer::get_singleton()->area_set_monitor_callback(get_rid(), this, SceneStringNames::get_singleton()->_body_inout);
-		Physics2DServer::get_singleton()->area_set_area_monitor_callback(get_rid(), this, SceneStringNames::get_singleton()->_area_inout);
+        Physics2DServer::get_singleton()->area_set_monitor_callback(get_rid(), this, SceneStringNames::get_singleton()->_body_inout);
+        Physics2DServer::get_singleton()->area_set_area_monitor_callback(get_rid(), this, SceneStringNames::get_singleton()->_area_inout);
 
 	} else {
-		Physics2DServer::get_singleton()->area_set_monitor_callback(get_rid(), NULL, StringName());
-		Physics2DServer::get_singleton()->area_set_area_monitor_callback(get_rid(), NULL, StringName());
+        Physics2DServer::get_singleton()->area_set_monitor_callback(get_rid(), NULL, StringName());
+        Physics2DServer::get_singleton()->area_set_area_monitor_callback(get_rid(), NULL, StringName());
 		_clear_monitoring();
 	}
 }

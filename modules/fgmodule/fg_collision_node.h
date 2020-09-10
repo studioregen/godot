@@ -5,6 +5,7 @@
 #include "core/variant.h"
 #include "core/list.h"
 #include "core/map.h"
+#include "core/vset.h"
 
 class CollisionBox : public Resource {
     GDCLASS(CollisionBox, Resource)
@@ -22,6 +23,13 @@ public:
 
     void set_height(int p_height);
     int get_height() const;
+
+    CollisionBox() {
+        x = 0;
+        y = 0;
+        width = 0;
+        height = 0;
+    }
 
 protected:
     static void _bind_methods();
@@ -90,6 +98,10 @@ public:
     void set_monitorable(bool p_enable);
     bool is_monitorable() const;
 
+    void test_body_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape );
+    void test_area_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape);
+
+    _FORCE_INLINE_ RID get_rid() const { return area_id; }
 protected:
     static void _bind_methods();
 
@@ -108,6 +120,7 @@ private:
     bool monitorable;
     bool locked;
 
+    // ========== COPY FROM AREA_2D ============ //
 };
 
 #endif // FG_COLLISION_NODE_H
