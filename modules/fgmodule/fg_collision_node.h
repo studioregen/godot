@@ -55,12 +55,13 @@ public:
 
     void _notification(int p_what);
 
-    Ref<CollisionBox> add_box(int p_x, int p_y, int p_width, int p_height, BoxType p_type);
+    Ref<CollisionBox> add_box(int p_x, int p_y, int p_width, int p_height);
     void remove_box(Ref<CollisionBox> p_box);
 
     void set_hit_boxes(List<Ref<CollisionBox>> boxes) {
         rewrite_box_list(hitboxes, boxes);
-        emit_signal("draw");
+        emit_signal("changed");
+        update();
     }
 
     void set_hit_box_variants(const Vector<Variant> boxes) {
@@ -71,7 +72,6 @@ public:
         }
 
         set_hit_boxes(vals);
-        update();
     }
 
     List<Ref<CollisionBox>> get_hit_boxes() const {
@@ -86,6 +86,8 @@ public:
         return r;
     }
 
+    Ref<CollisionBox> query_point_for_collision_box(Vector2i pos);
+
     void set_layer_flags(uint32_t p_flags);
     uint32_t get_layer_flags() const;
 
@@ -98,8 +100,14 @@ public:
     void set_monitorable(bool p_enable);
     bool is_monitorable() const;
 
-    void test_body_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape );
-    void test_area_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape);
+    void body_in_out(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape );
+    void area_in_out(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape);
+    void _remove_area_interrupt(int p_instance);
+
+    int get_overlap_count();
+    Array get_overlapping_nodes();
+
+    List<Ref<CollisionBox>> get_box_list() { return hitboxes; }
 
     _FORCE_INLINE_ RID get_rid() const { return area_id; }
 protected:
@@ -118,8 +126,11 @@ private:
 
     bool monitoring;
     bool monitorable;
-    bool locked;
 
+    bool locked;
+    List<ObjectID> overlapping_areas;
+
+    bool debug_draw;
     // ========== COPY FROM AREA_2D ============ //
 };
 

@@ -74,6 +74,7 @@ FGCollisionNode::FGCollisionNode(){
     layer = 0;
     mask = 0;
     locked = false;
+    debug_draw = true;
 }
 
 FGCollisionNode::~FGCollisionNode(){
@@ -112,7 +113,7 @@ void FGCollisionNode::_notification(int p_what) {
 
     case NOTIFICATION_DRAW:{
 
-        if (/*Engine::get_singleton()->is_editor_hint()*/ true) {
+        if (Engine::get_singleton()->is_editor_hint() || debug_draw) {
             for(List<Ref<CollisionBox>>::Element *E = hitboxes.front(); E; E = E->next()) {
                 if (E->get().is_null()) continue;
                 draw_rect(Rect2(E->get()->get_x(), E->get()->get_y(), E->get()->get_width(), E->get()->get_height()), Color(1.0, 1.0, 1.0), false);
@@ -128,7 +129,7 @@ void FGCollisionNode::_notification(int p_what) {
     }
 }
 
-Ref<CollisionBox> FGCollisionNode::add_box(int p_x, int p_y, int p_width, int p_height, FGCollisionNode::BoxType p_type)
+Ref<CollisionBox> FGCollisionNode::add_box(int p_x, int p_y, int p_width, int p_height)
 {
     List<Ref<CollisionBox>> boxes = hitboxes;
     Ref<CollisionBox> box( memnew(CollisionBox) );
@@ -140,6 +141,7 @@ Ref<CollisionBox> FGCollisionNode::add_box(int p_x, int p_y, int p_width, int p_
 
     rewrite_box_list(hitboxes, boxes);
     update();
+    emit_signal("changed");
     return box;
 }
 
@@ -153,6 +155,32 @@ void FGCollisionNode::remove_box(Ref<CollisionBox> p_box) {
 
     rewrite_box_list(hitboxes, boxes);
     update();
+    emit_signal("changed");
+}
+
+Ref<CollisionBox> FGCollisionNode::query_point_for_collision_box(Vector2i pos) {
+    Ref<CollisionBox> to_get;
+    for (const List<Ref<CollisionBox>>::Element *E = hitboxes.front(); E; E = E->next()) {
+        if (!E->get().is_valid()) continue;
+
+        Vector2i box_origin = Vector2i(E->get()->get_x(), E->get()->get_y());
+        Vector2i box_btmrght = box_origin + Vector2i(E->get()->get_width(), E->get()->get_height());
+
+        if (box_origin < pos && box_btmrght > pos) {
+            if (to_get.is_null()) {
+                to_get = E->get();
+            } else {
+                //In case of overlap, prefer grabbing the one with the smaller "area"..
+                int to_get_area = to_get->get_width() * to_get->get_height();
+                int queried_area = E->get()->get_width() * E->get()->get_height();
+                if (queried_area < to_get_area){
+                    to_get = E->get();
+                }
+            }
+        }
+    }
+
+    return to_get;
 }
 
 void FGCollisionNode::set_layer_flags(uint32_t p_flags)
@@ -188,8 +216,8 @@ void FGCollisionNode::set_monitoring(bool p_enable)
     monitoring = p_enable;
 
     if (monitoring) {
-        Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, this, "test_body_callback");
-        Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, this, "test_area_callback");
+        Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, this, "body_in_out");
+        Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, this, "area_in_out");
     } else {
         Physics2DServer::get_singleton()->area_set_monitor_callback(area_id, NULL, StringName());
         Physics2DServer::get_singleton()->area_set_area_monitor_callback(area_id, NULL, StringName());
@@ -218,16 +246,69 @@ bool FGCollisionNode::is_monitorable() const
     return monitorable;
 }
 
-void FGCollisionNode::test_body_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
+void FGCollisionNode::body_in_out(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
 {
-    print_line("mememe");
+    locked = true;
+    locked = false;
 }
 
-void FGCollisionNode::test_area_callback(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
+void FGCollisionNode::area_in_out(Physics2DServer::AreaBodyStatus status, RID entered_rid, int p_instance, int p_body_shape, int p_area_shape)
 {
-    Array a;
-    a.append(this->get_name());
-    print_line(String("momomo {0}").format(a));
+    locked = true;
+
+    List<ObjectID>::Element* E = overlapping_areas.find(p_instance);
+    Object* object = ObjectDB::get_instance(p_instance);
+    Node* node = Object::cast_to<Node>(object);
+
+    if (status == Physics2DServer::AREA_BODY_ADDED) {
+
+        if (node && !E) {
+            overlapping_areas.push_back(p_instance);
+
+            node->connect(SceneStringNames::get_singleton()->tree_exited, this, "_remove_area_interrupt", varray(p_instance));
+            emit_signal(SceneStringNames::get_singleton()->area_entered, node);
+        }
+    } else {
+
+        if (node && E) {
+            emit_signal(SceneStringNames::get_singleton()->area_exited, node);
+            node->disconnect(SceneStringNames::get_singleton()->tree_exited, this, "_remove_area_interrupt");
+
+            overlapping_areas.erase(E);
+        }
+    }
+
+    locked = false;
+}
+
+void FGCollisionNode::_remove_area_interrupt(int p_instance)
+{
+    Object* obj = ObjectDB::get_instance(p_instance);
+    Node* node = Object::cast_to<Node>(obj);
+    if (node) {
+        emit_signal(SceneStringNames::get_singleton()->area_exited, varray(node));
+    }
+    overlapping_areas.erase(p_instance);
+}
+
+int FGCollisionNode::get_overlap_count()
+{
+    return overlapping_areas.size();
+}
+
+Array FGCollisionNode::get_overlapping_nodes()
+{
+    Array nodes;
+
+    for (const List<ObjectID>::Element* E = overlapping_areas.front(); E; E = E->next()) {
+        Object* obj = ObjectDB::get_instance(E->get());
+        Node* node = Object::cast_to<Node>(obj);
+        if (node) {
+            nodes.push_back(node);
+        }
+    }
+
+    return nodes;
 }
 
 void FGCollisionNode::_bind_methods()
@@ -248,8 +329,12 @@ void FGCollisionNode::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_monitorable", "enable"), &FGCollisionNode::set_monitorable);
     ClassDB::bind_method(D_METHOD("is_monitorable"), &FGCollisionNode::is_monitorable);
 
-    ClassDB::bind_method(D_METHOD("test_body_callback", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::test_body_callback);
-    ClassDB::bind_method(D_METHOD("test_area_callback", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::test_area_callback);
+    ClassDB::bind_method(D_METHOD("body_in_out", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::body_in_out);
+    ClassDB::bind_method(D_METHOD("area_in_out", "status", "rid", "p_instance", "p_body_shape", "p_area_shape"), &FGCollisionNode::area_in_out);
+    ClassDB::bind_method(D_METHOD("_remove_area_interrupt", "obj_id"), &FGCollisionNode::_remove_area_interrupt);
+
+    ClassDB::bind_method(D_METHOD("get_overlap_count"), &FGCollisionNode::get_overlap_count);
+    ClassDB::bind_method(D_METHOD("get_overlapping_nodes"), &FGCollisionNode::get_overlapping_nodes);
 
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "monitoring"), "set_monitoring", "is_monitoring");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "monitorable"), "set_monitorable", "is_monitorable");
@@ -257,6 +342,10 @@ void FGCollisionNode::_bind_methods()
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "collision_hit_boxes", PROPERTY_HINT_RESOURCE_TYPE, "17/17:CollisionBox", (PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE), "CollisionBox"), "set_hit_boxes", "get_hit_boxes");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_layer_flags", "get_layer_flags");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_mask_flags", "get_mask_flags");
+
+    ADD_SIGNAL(MethodInfo("changed"));
+    ADD_SIGNAL(MethodInfo("area_entered", PropertyInfo(Variant::OBJECT, "area", PROPERTY_HINT_RESOURCE_TYPE, "Node2D")));
+    ADD_SIGNAL(MethodInfo("area_exited", PropertyInfo(Variant::OBJECT, "area", PROPERTY_HINT_RESOURCE_TYPE, "Node2D")));
 }
 
 void FGCollisionNode::rewrite_box_list(List<Ref<CollisionBox>> &list_to_change, const List<Ref<CollisionBox>> &reference_list)
