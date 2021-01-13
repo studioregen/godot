@@ -5,7 +5,7 @@
 #include "thirdparty/ggpo/src/include/ggponet.h"
 
 class SceneTreeLockstep;
-struct GGPOInput;
+struct GGPOController;
 
 class GGPONetwork : public Object {
     GDCLASS(GGPONetwork, Object)
@@ -55,9 +55,9 @@ public:
 
     bool add_player(PlayerType type, String ip_address = "");
 
-    bool add_local_input(uint8_t index, GGPOInput* input);
+    bool add_local_input(uint8_t index, GGPOController* input);
 
-    bool synchronize_inputs(GGPOInput* inputs);
+    bool synchronize_inputs(GGPOController* inputs);
 
     bool idle(uint64_t timeoutMS);
 

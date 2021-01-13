@@ -5,28 +5,120 @@
 #include "core/object.h"
 #include "core/engine.h"
 #include "core/os/os.h"
+#include "core/map.h"
+#include "core/os/input.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/ggpo_network.h"
 #include "scene/main/viewport.h"
 
-struct GGPOInput {
-   uint32_t buttons = 0;
+struct GGPOController {
+	uint32_t buttons = 0;
 
-   static GGPOInput random(){
-       GGPOInput to_return = GGPOInput{};
-       to_return.buttons = rand();
-       return to_return;
-   }
+	GGPOController()
+		: buttons(0) {}
+
+	GGPOController( const GGPOController& rhs )
+		: buttons(rhs.buttons) {}
+
+	static GGPOController random(){
+		GGPOController to_return = GGPOController{};
+		to_return.buttons = rand();
+		return to_return;
+	}
 };
+
+class GGPOInput : public Reference {
+	GDCLASS(GGPOInput, Reference)
+
+public:
+	GGPOInput()
+		: Reference() {
+		control.buttons = 0;
+	}
+
+	GGPOInput( const GGPOController &state )
+		: Reference()
+		, control(state) {}
+
+	GGPOInput( const GGPOInput &rhs )
+		: Reference()
+		, control(rhs.control)
+		, idToAction(rhs.idToAction)
+		, actionToId(rhs.actionToId) {}
+
+	bool register_action(int offset, StringName action_name) {
+		if (offset >= 32 || offset < 0 ) {
+			return false;
+		}
+
+		idToAction.insert(offset, action_name);
+		actionToId.insert(action_name, offset);
+		return true;
+	}
+
+	void free_action(int offset) {
+		if (!idToAction.has(offset)) {
+			return;
+		}
+
+		StringName action = idToAction.find(offset)->value();
+		idToAction.erase(offset);
+		actionToId.erase(action);
+	}
+
+	GGPOController get_state() {
+		return control;
+	}
+
+	void set_state( GGPOController state ) {
+		control = state;
+	}
+
+	void fill_inputs() {
+		control.buttons = 0;
+		for ( Map<int, StringName>::Element* E = idToAction.front();
+			  E;
+			  E = E->next() ) {
+			bool is_pressed = Input::get_singleton()->is_action_pressed(E->value());
+			control.buttons = is_pressed ? (control.buttons | (1 << E->key())) : control.buttons;
+		}
+	}
+
+	void random() {
+		control = GGPOController::random();
+	}
+
+	bool is_pressed( StringName action ) {
+		if (!actionToId.has(action))
+			return false;
+		int offset = actionToId[action];
+		print_line(String(action) + vformat("%d", control.buttons & (1 << offset)));
+		return ((1 << offset) & control.buttons) > 0;
+	}
+
+protected:
+	static void _bind_methods() {
+		ClassDB::bind_method(D_METHOD("is_pressed", "p_action_name"), &GGPOInput::is_pressed);
+		ClassDB::bind_method(D_METHOD("register_action", "p_bit_offset", "p_action_name"), &GGPOInput::register_action);
+		ClassDB::bind_method(D_METHOD("free_action", "p_bit_offset"), &GGPOInput::register_action);
+	}
+
+private:
+	GGPOController control;
+	Map<int, StringName> idToAction;
+	Map<StringName, int> actionToId;
+};
+
+const int MAX_PLAYERS = 4;
 
 class SceneTreeLockstep : public SceneTree {
     GDCLASS(SceneTreeLockstep, SceneTree);
-
-private:
-    float fixed_delta;
-	Dictionary game_state;
-
 public:
+	SceneTreeLockstep()
+		: SceneTree()
+		, player_input{memnew(GGPOInput), memnew(GGPOInput), memnew(GGPOInput), memnew(GGPOInput)} {
+
+	}
 
     /* This function wraps the SceneTree version of iteration so that,
      * when the system needs to rollback and resimulate n-frames,
@@ -50,26 +142,28 @@ public:
         //Sends this frame's local input to ggpo (or any other rollback network)
         bool inputs_accepted = true;
         {
-            GGPOInput localInput = GGPOInput();
-            request_inputs_for_local_player(localInput, 0);
-
             if (ggpo->is_sync_testing()){
-                localInput = GGPOInput::random();
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+					player_input[i]->random();
+				}
             }
 
+            uint8_t local_player_index = 0;
             for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++){
                 if (ggpo->is_player_local(i)) {
-                    Array args = Array();
-                    args.append(i);
-                    if( !ggpo->add_local_input(i, &localInput) ) {
-                        print_line(String("Ignoring player input for {0} to catch up.").format(args));
+					player_input[local_player_index]->fill_inputs();
+					GGPOController ctrl_state = player_input[local_player_index]->get_state();
+                    if( !ggpo->add_local_input(i, &ctrl_state) ) {
+                        print_line(vformat("Ignoring player input for %d to catch up.", i));
                         inputs_accepted = false;
                     }
+
+                    local_player_index++;
                 }
             }
         }
 
-        GGPOInput inputs[2] = {GGPOInput(), GGPOInput()};
+        GGPOController inputs[MAX_PLAYERS];
 
         if (!ggpo->has_remote_players() || (ggpo->synchronize_inputs(inputs) && inputs_accepted)) { //Gets both remote and local (+frameDelay) inputs into array.
             bool shouldQuit = SceneTree::iteration(fixed_delta);
@@ -101,7 +195,7 @@ public:
     bool advance_frame(int flags) {
         GGPONetwork* network = GGPONetwork::get_singleton();
         const int players = network->get_current_player_count();
-        GGPOInput inputs[players];
+        GGPOController inputs[players];
 
         network->synchronize_inputs(inputs);
         iteration(fixed_delta);
@@ -110,24 +204,13 @@ public:
         return true;
     }
 
-    void request_inputs_for_local_player(GGPOInput &input, uint8_t player_id) {
-
-        Dictionary input_dict = serialize_ggpo_input(input);
-        Array args;
-        args.append(input_dict);
-        args.append(player_id);
-
-        if( get_root() )
-            get_root()->propagate_call("fill_local_player_input", args );
-
-        input = deserialize_ggpo_input(input_dict);
-    }
-
-    void lockstep_update(GGPOInput* inputs, uint8_t num_players, float p_time) {
-        Dictionary all_inputs = Dictionary();
+    void lockstep_update(GGPOController* inputs, uint8_t num_players, float p_time) {
+        Array all_inputs;
 
         for (int player_id = 0; player_id < num_players; player_id++) {
-            all_inputs[player_id] = serialize_ggpo_input(inputs[player_id]);
+			player_input[player_id]->set_state(inputs[player_id]);
+			print_line(vformat( "%d", player_input[player_id]->get_state().buttons));
+			all_inputs.push_back(player_input[player_id]);
         }
 
         Array args;
@@ -136,10 +219,6 @@ public:
 
         if( get_root() )
             get_root()->propagate_call("_lockstep_update", args);
-
-        for (int player_id = 0; player_id < num_players; player_id++) {
-            inputs[player_id] = deserialize_ggpo_input(all_inputs[player_id]);
-        }
 
         write_gamestate();
     }
@@ -153,12 +232,17 @@ public:
         if( get_root() )
             get_root()->propagate_call("_serialize_game_state", args);
 
-        //print_line( String("write_gamestate {0}").format(args) );
-
         game_state = dict_game_state;
     }
 
     Object* get_ggpo() { return (Object*)GGPONetwork::get_singleton(); }
+
+    Ref<GGPOInput> get_player_input(int p_player_index) {
+		if ( p_player_index >= MAX_PLAYERS || p_player_index < 0 )
+			return nullptr;
+
+		return player_input[p_player_index];
+	}
 
     void load_game_state(Dictionary dict) {
         game_state = dict;
@@ -174,39 +258,17 @@ public:
 
     Dictionary get_game_state() { return game_state; }
 
-    Dictionary serialize_ggpo_input(GGPOInput& input) {
-        Dictionary input_dict = Dictionary();
-
-        {
-            input_dict["up"] = ((input.buttons & 1) > 0);
-            input_dict["down"] = ((input.buttons & 1 << 2) > 0);
-            input_dict["left"] = ((input.buttons & 1 << 3) > 0);
-            input_dict["right"] = ((input.buttons & 1 << 4) > 0);
-        }
-
-        return input_dict;
-    }
-
-    GGPOInput deserialize_ggpo_input(Dictionary dictionary) {
-        GGPOInput input;
-
-        Array fmt;
-        fmt.append(dictionary);
-
-        {
-            input.buttons |= dictionary["up"] ? 1 : 0;
-            input.buttons |= dictionary["down"] ? 1 << 2 : 0;
-            input.buttons |= dictionary["left"] ? 1 << 3 : 0;
-            input.buttons |= dictionary["right"] ? 1 << 4 : 0;
-        }
-
-        return input;
-    }
-
     static void _bind_methods(){
         ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
+		ClassDB::bind_method(D_METHOD("get_player_input", "p_player_index"), &SceneTreeLockstep::get_player_input);
         ClassDB::bind_method(D_METHOD("set_gamestate"), &SceneTreeLockstep::load_game_state);
     }
+
+	private:
+		float fixed_delta;
+		Dictionary game_state;
+		Ref<GGPOInput> player_input[MAX_PLAYERS];
+
 };
 
 #endif // SCENE_TREE_LOCKSTEP_H

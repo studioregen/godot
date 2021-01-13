@@ -196,11 +196,11 @@ bool GGPONetwork::start_session(Object* tree_object, String name, uint16_t num_p
         callbacks.on_event = &GGPONetwork::cb_ggpo_event;
 
         //sizeof Godot Object failing.
-        errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(GGPOInput), udp_port);
+        errcode = ggpo_start_session(&session, &callbacks, name.utf8().get_data(), num_players, sizeof(GGPOController), udp_port);
 
         if (!GGPO_SUCCEEDED(errcode) ) {
             Array string_args = Array();
-            string_args.push_back(sizeof(GGPOInput));
+            string_args.push_back(sizeof(GGPOController));
             string_args.push_back(errcode);
             string_args.push_back(num_players);
             print_line(String("SerializedGGPOInput {0}, errcode {1}, players {2}").format(string_args));
@@ -235,11 +235,11 @@ bool GGPONetwork::start_sync_test(Object* tree_object, String name, uint16_t num
         callbacks.free_buffer = &GGPONetwork::cb_free_game_state;
         callbacks.on_event = &GGPONetwork::cb_ggpo_event;
 
-        errcode = ggpo_start_synctest(&session, &callbacks, "sync_test", num_players, sizeof(GGPOInput), 1);
+        errcode = ggpo_start_synctest(&session, &callbacks, "sync_test", num_players, sizeof(GGPOController), 1);
 
         if (!GGPO_SUCCEEDED(errcode)) {
             Array string_args = Array();
-            string_args.push_back(sizeof(GGPOInput));
+            string_args.push_back(sizeof(GGPOController));
             string_args.push_back(errcode);
             string_args.push_back(num_players);
             print_line(String("SyncTest GGPOInputSize {0}, errcode {1}, players {2}").format(string_args));
@@ -254,13 +254,13 @@ bool GGPONetwork::start_sync_test(Object* tree_object, String name, uint16_t num
         return GGPO_SUCCEEDED(errcode);
     }
 
-bool GGPONetwork::add_local_input(uint8_t index, GGPOInput* input) {
+bool GGPONetwork::add_local_input(uint8_t index, GGPOController* input) {
         if ( index >= get_current_player_count() ) {
             return false;
         }
 
         GGPOErrorCode err;
-        err = ggpo_add_local_input(session, handles[index], input, sizeof(GGPOInput));
+        err = ggpo_add_local_input(session, handles[index], input, sizeof(GGPOController));
 
         if (!GGPO_SUCCEEDED(err)) {
             Array string_args = Array();
@@ -271,11 +271,11 @@ bool GGPONetwork::add_local_input(uint8_t index, GGPOInput* input) {
         return GGPO_SUCCEEDED(err);
     }
 
-bool GGPONetwork::synchronize_inputs(GGPOInput* inputs) {
+bool GGPONetwork::synchronize_inputs(GGPOController* inputs) {
         GGPOErrorCode err;
         int disconnection_flags;
 
-        err = ggpo_synchronize_input(session, (void *) inputs, sizeof(GGPOInput) * details->max_player_count, &disconnection_flags);
+        err = ggpo_synchronize_input(session, (void *) inputs, sizeof(GGPOController) * details->max_player_count, &disconnection_flags);
 
         if (!GGPO_SUCCEEDED(err)) {
             Array string_args = Array();
