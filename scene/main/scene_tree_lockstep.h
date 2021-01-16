@@ -92,8 +92,36 @@ public:
 		if (!actionToId.has(action))
 			return false;
 		int offset = actionToId[action];
-		print_line(String(action) + vformat("%d", control.buttons & (1 << offset)));
 		return ((1 << offset) & control.buttons) > 0;
+	}
+
+	int buttons() {
+		return control.buttons;
+	}
+
+	int button_mask( List<StringName> actions ) {
+		uint32_t filter = 0;
+		for ( List<StringName>::Element* E = actions.front();
+			  E;
+			  E = E->next() ) {
+			if (!actionToId.has(E->get()))
+				continue;
+
+			filter |= 1 << actionToId[E->get()];
+		}
+
+		return filter;
+	}
+
+	int button_mask_v( Array actions ) {
+		List<StringName> names;
+		for ( int i = 0; i < actions.size(); i++ ) {
+			if (actions[i].get_type() == Variant::STRING) {
+				names.push_back(actions[i]);
+			}
+		}
+
+		return button_mask(names);
 	}
 
 protected:
@@ -101,6 +129,8 @@ protected:
 		ClassDB::bind_method(D_METHOD("is_pressed", "p_action_name"), &GGPOInput::is_pressed);
 		ClassDB::bind_method(D_METHOD("register_action", "p_bit_offset", "p_action_name"), &GGPOInput::register_action);
 		ClassDB::bind_method(D_METHOD("free_action", "p_bit_offset"), &GGPOInput::register_action);
+		ClassDB::bind_method(D_METHOD("buttons"), &GGPOInput::buttons);
+		ClassDB::bind_method(D_METHOD("button_mask", "actions"), &GGPOInput::button_mask_v);
 	}
 
 private:
@@ -108,8 +138,6 @@ private:
 	Map<int, StringName> idToAction;
 	Map<StringName, int> actionToId;
 };
-
-const int MAX_PLAYERS = 4;
 
 class SceneTreeLockstep : public SceneTree {
     GDCLASS(SceneTreeLockstep, SceneTree);
@@ -140,35 +168,36 @@ public:
 
         //We need to poll for local inputs
         //Sends this frame's local input to ggpo (or any other rollback network)
-        bool inputs_accepted = true;
-        {
-            if (ggpo->is_sync_testing()){
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-					player_input[i]->random();
-				}
-            }
 
-            uint8_t local_player_index = 0;
-            for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++){
-                if (ggpo->is_player_local(i)) {
+		if (ggpo->is_sync_testing()){
+			for (int i = 0; i < MAX_PLAYERS; i++) {
+				player_input[i]->random();
+			}
+		}
+
+		uint8_t local_player_index = 0;
+		for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++){
+			if (ggpo->is_player_local(i)) {
+				if (!ggpo->is_sync_testing()) {
 					player_input[local_player_index]->fill_inputs();
-					GGPOController ctrl_state = player_input[local_player_index]->get_state();
-                    if( !ggpo->add_local_input(i, &ctrl_state) ) {
-                        print_line(vformat("Ignoring player input for %d to catch up.", i));
-                        inputs_accepted = false;
-                    }
+				}
 
-                    local_player_index++;
-                }
-            }
-        }
+				GGPOController ctrl_state = player_input[local_player_index]->get_state();
+				if( !ggpo->add_local_input(i, &ctrl_state) ) {
+					print_line(vformat("Ignoring player input for %d to catch up.", i));
+				}
 
-        GGPOController inputs[MAX_PLAYERS];
+				local_player_index++;
+			}
+		}
 
-        if (!ggpo->has_remote_players() || (ggpo->synchronize_inputs(inputs) && inputs_accepted)) { //Gets both remote and local (+frameDelay) inputs into array.
+
+        GGPOController inputs[MAX_PLAYERS] = { GGPOController() };
+
+        if (ggpo->synchronize_inputs(inputs)) {
             bool shouldQuit = SceneTree::iteration(fixed_delta);
             lockstep_update(inputs, ggpo->get_current_player_count(), fixed_delta);
-            ggpo->advance_frame();
+			ggpo->advance_frame();
             return shouldQuit;
         } else {
             print_line("Stalled...");
@@ -194,12 +223,12 @@ public:
 
     bool advance_frame(int flags) {
         GGPONetwork* network = GGPONetwork::get_singleton();
-        const int players = network->get_current_player_count();
-        GGPOController inputs[players];
+        GGPOController inputs[MAX_PLAYERS];
 
         network->synchronize_inputs(inputs);
-        iteration(fixed_delta);
+        SceneTree::iteration(fixed_delta);
         lockstep_update(inputs, network->get_current_player_count(), fixed_delta);
+		network->advance_frame();
 
         return true;
     }
@@ -209,30 +238,75 @@ public:
 
         for (int player_id = 0; player_id < num_players; player_id++) {
 			player_input[player_id]->set_state(inputs[player_id]);
-			print_line(vformat( "%d", player_input[player_id]->get_state().buttons));
 			all_inputs.push_back(player_input[player_id]);
         }
 
-        Array args;
-        args.append(all_inputs);
-        args.append(p_time);
-
-        if( get_root() )
+        if( get_root() ) {
+			Array args;
+			args.append(all_inputs);
+			args.append(p_time);
             get_root()->propagate_call("_lockstep_update", args);
-
-        write_gamestate();
+		}
     }
 
-    void write_gamestate() {
-        Dictionary dict_game_state = game_state;
+    void recurse_save_synced_properties(Node* p_node, Dictionary &p_game_state) {
+		if (!p_node)
+			return;
 
-        Array args;
-        args.append(dict_game_state);
+		for (int child_index = 0; child_index < p_node->get_child_count(); child_index++){
+			recurse_save_synced_properties(p_node->get_child(child_index), p_game_state);
+		}
 
-        if( get_root() )
-            get_root()->propagate_call("_serialize_game_state", args);
+		const NodePath nodePath = p_node->get_path();
+		p_game_state[nodePath.hash()] = Dictionary();
 
-        game_state = dict_game_state;
+		List<PropertyInfo> props;
+
+		// All values with the keyword "sync" are treated as important to gamestate syncronization.
+		p_node->get_property_list( &props );
+		for ( List<PropertyInfo>::Element* E = props.front();
+			  E;
+			  E = E->next() ) {
+			String propName = E->get().name;
+			if (p_node->get_node_rset_mode(propName) && p_node->get_node_rset_mode(propName)->value() == MultiplayerAPI::RPC_MODE_REMOTESYNC) {
+				Dictionary d = p_game_state[nodePath.hash()];
+				d[propName] = p_node->get(propName);
+			}
+
+			ScriptInstance* script = p_node->get_script_instance();
+			if (script && script->get_rset_mode(propName) && script->get_rset_mode(propName) == MultiplayerAPI::RPC_MODE_REMOTESYNC) {
+				Dictionary d = p_game_state[nodePath.hash()];
+				d[propName] = p_node->get(propName);
+			}
+		}
+	}
+
+	void recurse_load_synced_properties(Node* p_node, Dictionary &p_game_state) {
+		if (!p_node)
+			return;
+
+		for (int child_index = 0; child_index < p_node->get_child_count(); child_index++){
+			recurse_load_synced_properties(p_node->get_child(child_index), p_game_state);
+		}
+
+		const NodePath nodePath = p_node->get_path();
+		Dictionary props = p_game_state[nodePath.hash()];
+
+		for (int i = 0; i < props.size(); i++) {
+			StringName prop = props.get_key_at_index(i);
+			p_node->set(prop, props[prop]);
+
+			ScriptInstance* script = p_node->get_script_instance();
+			if (script) {
+				script->set(prop, props[prop]);
+			}
+		}
+	}
+
+    void save_game_state(Dictionary dict) {
+        if (get_root()) {
+			recurse_save_synced_properties(get_root(), dict);
+		}
     }
 
     Object* get_ggpo() { return (Object*)GGPONetwork::get_singleton(); }
@@ -245,18 +319,10 @@ public:
 	}
 
     void load_game_state(Dictionary dict) {
-        game_state = dict;
-
-        print_line(String("{}").format(dict));
-
-        Array args;
-        args.append(game_state);
-
-        if( get_root() )
-            get_root()->propagate_call("_deserialize_game_state", args);
+        if (get_root()) {
+			recurse_load_synced_properties(get_root(), dict);
+		}
     }
-
-    Dictionary get_game_state() { return game_state; }
 
     static void _bind_methods(){
         ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
@@ -266,7 +332,6 @@ public:
 
 	private:
 		float fixed_delta;
-		Dictionary game_state;
 		Ref<GGPOInput> player_input[MAX_PLAYERS];
 
 };

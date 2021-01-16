@@ -7,6 +7,8 @@
 class SceneTreeLockstep;
 struct GGPOController;
 
+const int MAX_PLAYERS = 4;
+
 class GGPONetwork : public Object {
     GDCLASS(GGPONetwork, Object)
 
@@ -62,7 +64,6 @@ public:
     bool idle(uint64_t timeoutMS);
 
     bool advance_frame();
-
 
     void close_session();
 

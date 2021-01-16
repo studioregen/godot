@@ -1,6 +1,8 @@
 #include "ggpo_network.h"
 #include "core/io/marshalls.h"
 #include "scene/main/scene_tree_lockstep.h"
+#include "core/crypto/hashing_context.h"
+#include "core/io/json.h"
 
 GGPONetwork* GGPONetwork::instance = nullptr;
 
@@ -91,8 +93,11 @@ bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, i
         return false;
     }
 
+    Dictionary game_state;
+	GGPONetwork::get_singleton()->get_tree()->save_game_state(game_state);
+
     int length = 0;
-    Error err = encode_variant(GGPONetwork::get_singleton()->get_tree()->get_game_state(), NULL, length, true);
+    Error err = encode_variant(game_state, NULL, length, true);
     *out_len = length;
     *out_buffer = (unsigned char*)memalloc(*out_len);
 
@@ -100,20 +105,28 @@ bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, i
        return false;
     }
 
-    encode_variant(GGPONetwork::get_singleton()->get_tree()->get_game_state(), *out_buffer, *out_len, true);
+	print_line("SAVE " + JSON::print(game_state));
+
+	Error e = encode_variant(game_state, *out_buffer, *out_len, true);
+
+	*out_checksum = game_state.hash();
+
     return true;
 }
 
 bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
     //print_line("cb_load_game_state");
     Variant var;
-    Error err = decode_variant(var, buffer, len, NULL, true);
+    Error err = decode_variant(var, buffer, len, 0, true);
 
     if (err != OK) {
         return false;
     }
 
-    GGPONetwork::get_singleton()->get_tree()->load_game_state((Dictionary)var);
+	Dictionary dict = var;
+    print_line("LOAD " + JSON::print(dict));
+
+    GGPONetwork::get_singleton()->get_tree()->load_game_state(dict);
     return true;
 }
 
@@ -275,7 +288,7 @@ bool GGPONetwork::synchronize_inputs(GGPOController* inputs) {
         GGPOErrorCode err;
         int disconnection_flags;
 
-        err = ggpo_synchronize_input(session, (void *) inputs, sizeof(GGPOController) * details->max_player_count, &disconnection_flags);
+        err = ggpo_synchronize_input(session, (void *) inputs, sizeof(GGPOController) * MAX_PLAYERS, &disconnection_flags);
 
         if (!GGPO_SUCCEEDED(err)) {
             Array string_args = Array();
