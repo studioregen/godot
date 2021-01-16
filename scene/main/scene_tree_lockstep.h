@@ -175,16 +175,19 @@ public:
 			}
 		}
 
+		bool add_input_error = false;
 		uint8_t local_player_index = 0;
 		for (uint8_t i = 0; i < ggpo->get_current_player_count(); i++){
 			if (ggpo->is_player_local(i)) {
 				if (!ggpo->is_sync_testing()) {
-					player_input[local_player_index]->fill_inputs();
+					//player_input[local_player_index]->fill_inputs();
+					player_input[local_player_index]->random();
 				}
 
 				GGPOController ctrl_state = player_input[local_player_index]->get_state();
 				if( !ggpo->add_local_input(i, &ctrl_state) ) {
 					print_line(vformat("Ignoring player input for %d to catch up.", i));
+					add_input_error = true;
 				}
 
 				local_player_index++;
@@ -194,7 +197,7 @@ public:
 
         GGPOController inputs[MAX_PLAYERS] = { GGPOController() };
 
-        if (ggpo->synchronize_inputs(inputs)) {
+        if (!add_input_error && ggpo->synchronize_inputs(inputs)) {
             bool shouldQuit = SceneTree::iteration(fixed_delta);
             lockstep_update(inputs, ggpo->get_current_player_count(), fixed_delta);
 			ggpo->advance_frame();
@@ -324,10 +327,17 @@ public:
 		}
     }
 
+    Dictionary get_gamestate() {
+		Dictionary state;
+		save_game_state(state);
+		return state;
+	}
+
     static void _bind_methods(){
         ClassDB::bind_method(D_METHOD("get_ggpo"), &SceneTreeLockstep::get_ggpo);
 		ClassDB::bind_method(D_METHOD("get_player_input", "p_player_index"), &SceneTreeLockstep::get_player_input);
         ClassDB::bind_method(D_METHOD("set_gamestate"), &SceneTreeLockstep::load_game_state);
+		ClassDB::bind_method(D_METHOD("get_gamestate"), &SceneTreeLockstep::get_gamestate);
     }
 
 	private:
