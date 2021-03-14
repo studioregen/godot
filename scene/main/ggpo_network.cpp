@@ -105,7 +105,7 @@ bool GGPONetwork::cb_save_game_state(unsigned char **out_buffer, int *out_len, i
        return false;
     }
 
-	print_line("SAVE " + JSON::print(game_state));
+	//print_line("SAVE " + JSON::print(game_state));
 
 	Error e = encode_variant(game_state, *out_buffer, *out_len, true);
 
@@ -124,7 +124,7 @@ bool GGPONetwork::cb_load_game_state(unsigned char *buffer, int len) {
     }
 
 	Dictionary dict = var;
-    print_line("LOAD " + JSON::print(dict));
+    //print_line("LOAD " + JSON::print(dict));
 
     GGPONetwork::get_singleton()->get_tree()->load_game_state(dict);
     return true;
