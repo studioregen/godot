@@ -1,3 +1,4 @@
 [submodule "thirdparty/ggpo"]
 	path = thirdparty/ggpo
-	url = /home/eoin/Source/ggpo
+	url = git@github.com:Eoin-ONeill-Yokai/ggpo.git
+	branch = local-frame-delay-simulation
