@@ -128,12 +128,16 @@ private:
 		Color modulate;
 		AutotileData autotile_data;
 		int z_index;
+		bool horizontal_leap;
+		bool vertical_leap;
 
 		// Default modulate for back-compat
 		explicit TileData() :
 				tile_mode(SINGLE_TILE),
 				modulate(1, 1, 1),
-				z_index(0) {}
+				z_index(0),
+				horizontal_leap(false),
+				vertical_leap(false) {}
 	};
 
 	Map<int, TileData> tile_map;
@@ -191,6 +195,8 @@ public:
 	int autotile_get_z_index(int p_id, const Vector2 &p_coord);
 	const Map<Vector2, int> &autotile_get_z_index_map(int p_id) const;
 
+
+
 	void autotile_set_bitmask(int p_id, Vector2 p_coord, uint32_t p_flag);
 	uint32_t autotile_get_bitmask(int p_id, Vector2 p_coord);
 	const Map<Vector2, uint32_t> &autotile_get_bitmask_map(int p_id);
@@ -247,6 +253,12 @@ public:
 
 	void tile_set_z_index(int p_id, int p_z_index);
 	int tile_get_z_index(int p_id) const;
+
+	void tile_set_leap_vert(int p_id, bool value);
+	bool tile_get_leap_vert(int p_id) const;
+
+	void tile_set_leap_horiz(int p_id, bool value);
+	bool tile_get_leap_horiz(int p_id) const;
 
 	void remove_tile(int p_id);
 

@@ -274,6 +274,8 @@ void TileSetEditor::_bind_methods() {
 	ClassDB::bind_method("_on_tool_clicked", &TileSetEditor::_on_tool_clicked);
 	ClassDB::bind_method("_on_priority_changed", &TileSetEditor::_on_priority_changed);
 	ClassDB::bind_method("_on_z_index_changed", &TileSetEditor::_on_z_index_changed);
+	ClassDB::bind_method("_on_horizontal_leap_toggled", &TileSetEditor::_on_horizontal_leap_toggled);
+	ClassDB::bind_method("_on_vertical_leap_toggled", &TileSetEditor::_on_vertical_leap_toggled);
 	ClassDB::bind_method("_on_grid_snap_toggled", &TileSetEditor::_on_grid_snap_toggled);
 	ClassDB::bind_method("_set_snap_step", &TileSetEditor::_set_snap_step);
 	ClassDB::bind_method("_set_snap_off", &TileSetEditor::_set_snap_off);
@@ -340,6 +342,7 @@ void TileSetEditor::_notification(int p_what) {
 			tool_editmode[EDITMODE_PRIORITY]->set_icon(get_icon("MaterialPreviewLight1", "EditorIcons"));
 			tool_editmode[EDITMODE_ICON]->set_icon(get_icon("LargeTexture", "EditorIcons"));
 			tool_editmode[EDITMODE_Z_INDEX]->set_icon(get_icon("Sort", "EditorIcons"));
+			tool_editmode[EDITMODE_META]->set_icon(get_icon("LargeTexture", "EditorIcons"));
 
 			scroll->add_style_override("bg", get_stylebox("bg", "Tree"));
 		} break;
@@ -481,6 +484,8 @@ TileSetEditor::TileSetEditor(EditorNode *p_editor) {
 	tool_editmode[EDITMODE_PRIORITY]->set_shortcut(ED_SHORTCUT("tileset_editor/editmode_priority", TTR("Priority Mode"), KEY_6));
 	tool_editmode[EDITMODE_ICON]->set_shortcut(ED_SHORTCUT("tileset_editor/editmode_icon", TTR("Icon Mode"), KEY_7));
 	tool_editmode[EDITMODE_Z_INDEX]->set_shortcut(ED_SHORTCUT("tileset_editor/editmode_z_index", TTR("Z Index Mode"), KEY_8));
+	tool_editmode[EDITMODE_META]->set_shortcut(ED_SHORTCUT("tileset_editor/editmode_meta", TTR("LTTP Tile Metadata"), KEY_9));
+
 
 	main_vb->add_child(tool_hb);
 	separator_editmode = memnew(HSeparator);
@@ -557,6 +562,20 @@ TileSetEditor::TileSetEditor(EditorNode *p_editor) {
 	spin_z_index->connect("value_changed", this, "_on_z_index_changed");
 	spin_z_index->hide();
 	toolbar->add_child(spin_z_index);
+
+	check_vertical_leap = memnew(CheckButton);
+	check_vertical_leap->set_toggle_mode(true);
+	check_vertical_leap->set_text("Leap V");
+	check_vertical_leap->connect("toggled", this, "_on_vertical_leap_toggled");
+	check_vertical_leap->hide();
+	toolbar->add_child(check_vertical_leap);
+
+	check_horizontal_leap = memnew(CheckButton);
+	check_horizontal_leap->set_toggle_mode(true);
+	check_horizontal_leap->set_text("Leap H");
+	check_horizontal_leap->connect("toggled", this, "_on_horizontal_leap_toggled");
+	check_horizontal_leap->hide();
+	toolbar->add_child(check_horizontal_leap);
 
 	separator_grid = memnew(VSeparator);
 	toolbar->add_child(separator_grid);
@@ -815,6 +834,8 @@ void TileSetEditor::_on_edit_mode_changed(int p_edit_mode) {
 			tools[SHAPE_DELETE]->set_tooltip(TTR("Delete selected Rect."));
 			spin_priority->hide();
 			spin_z_index->hide();
+			check_horizontal_leap->hide();
+			check_vertical_leap->hide();
 		} break;
 		case EDITMODE_COLLISION:
 		case EDITMODE_OCCLUSION:
@@ -839,6 +860,8 @@ void TileSetEditor::_on_edit_mode_changed(int p_edit_mode) {
 			tools[SHAPE_DELETE]->set_tooltip(TTR("Delete polygon."));
 			spin_priority->hide();
 			spin_z_index->hide();
+			check_horizontal_leap->hide();
+			check_vertical_leap->hide();
 
 			_select_edited_shape_coord();
 		} break;
@@ -860,10 +883,13 @@ void TileSetEditor::_on_edit_mode_changed(int p_edit_mode) {
 			tools[TOOL_SELECT]->set_pressed(true);
 			tools[TOOL_SELECT]->set_tooltip(TTR("LMB: Set bit on.\nRMB: Set bit off.\nShift+LMB: Set wildcard bit.\nClick on another Tile to edit it."));
 			spin_priority->hide();
+			check_horizontal_leap->hide();
+			check_vertical_leap->hide();
 		} break;
 		case EDITMODE_Z_INDEX:
 		case EDITMODE_PRIORITY:
-		case EDITMODE_ICON: {
+		case EDITMODE_ICON:
+		case EDITMODE_META: {
 			tools[TOOL_SELECT]->show();
 
 			separator_bitmask->hide();
@@ -880,17 +906,21 @@ void TileSetEditor::_on_edit_mode_changed(int p_edit_mode) {
 			tools[SHAPE_KEEP_INSIDE_TILE]->hide();
 			tools[TOOL_GRID_SNAP]->show();
 
+			spin_priority->hide();
+			spin_z_index->hide();
+			check_horizontal_leap->hide();
+			check_vertical_leap->hide();
 			if (edit_mode == EDITMODE_ICON) {
 				tools[TOOL_SELECT]->set_tooltip(TTR("Select sub-tile to use as icon, this will be also used on invalid autotile bindings.\nClick on another Tile to edit it."));
-				spin_priority->hide();
-				spin_z_index->hide();
 			} else if (edit_mode == EDITMODE_PRIORITY) {
 				tools[TOOL_SELECT]->set_tooltip(TTR("Select sub-tile to change its priority.\nClick on another Tile to edit it."));
 				spin_priority->show();
-				spin_z_index->hide();
+			} else if (edit_mode == EDITMODE_META) {
+				tools[TOOL_SELECT]->set_tooltip(TTR("Select subtile to change its game-related metadata. \nClick on another Tile to edit it"));
+				check_horizontal_leap->show();
+				check_vertical_leap->show();
 			} else {
 				tools[TOOL_SELECT]->set_tooltip(TTR("Select sub-tile to change its z index.\nClick on another Tile to edit it."));
-				spin_priority->hide();
 				spin_z_index->show();
 			}
 		} break;
@@ -1062,6 +1092,18 @@ void TileSetEditor::_on_workspace_draw() {
 			} break;
 			case EDITMODE_Z_INDEX: {
 				spin_z_index->set_value(tileset->autotile_get_z_index(get_current_tile(), edited_shape_coord));
+				draw_highlight_subtile(edited_shape_coord);
+			} break;
+			case EDITMODE_META: {
+
+				if (tileset->tile_get_leap_horiz(get_current_tile()) != check_horizontal_leap->is_pressed()) {
+					check_horizontal_leap->set_pressed( tileset->tile_get_leap_horiz(get_current_tile()) );
+				}
+
+				if (tileset->tile_get_leap_vert(get_current_tile()) != check_vertical_leap->is_pressed()) {
+					check_vertical_leap->set_pressed(tileset->tile_get_leap_vert(get_current_tile()));
+				}
+
 				draw_highlight_subtile(edited_shape_coord);
 			} break;
 			default: {
@@ -1581,7 +1623,8 @@ void TileSetEditor::_on_workspace_input(const Ref<InputEvent> &p_ie) {
 				case EDITMODE_OCCLUSION:
 				case EDITMODE_NAVIGATION:
 				case EDITMODE_PRIORITY:
-				case EDITMODE_Z_INDEX: {
+				case EDITMODE_Z_INDEX:
+				case EDITMODE_META: {
 					Vector2 shape_anchor = Vector2(0, 0);
 					if (tileset->tile_get_tile_mode(get_current_tile()) == TileSet::AUTO_TILE || tileset->tile_get_tile_mode(get_current_tile()) == TileSet::ATLAS_TILE) {
 						shape_anchor = edited_shape_coord;
@@ -1969,6 +2012,34 @@ void TileSetEditor::_on_z_index_changed(float val) {
 	undo_redo->commit_action();
 }
 
+void TileSetEditor::_on_horizontal_leap_toggled(bool value) {
+	if (value == tileset->tile_get_leap_horiz(get_current_tile()))
+		return;
+
+	undo_redo->create_action(TTR("Toggle Horizontal Leap"));
+	undo_redo->add_do_method(tileset.ptr(), "tile_set_leap_horiz", get_current_tile(), value);
+	undo_redo->add_undo_method(tileset.ptr(), "tile_set_leap_horiz", get_current_tile(), tileset->tile_get_leap_horiz(get_current_tile()));
+	undo_redo->add_do_method(workspace, "update");
+	undo_redo->add_undo_method(workspace, "update");
+	undo_redo->commit_action();
+
+	workspace->update();
+}
+
+void TileSetEditor::_on_vertical_leap_toggled(bool value) {
+	if (value == tileset->tile_get_leap_vert(get_current_tile()))
+		return;
+
+	undo_redo->create_action(TTR("Toggle Vertical Leap"));
+	undo_redo->add_do_method(tileset.ptr(), "tile_set_leap_vert", get_current_tile(), value);
+	undo_redo->add_undo_method(tileset.ptr(), "tile_set_leap_vert", get_current_tile(), tileset->tile_get_leap_vert(get_current_tile()));
+	undo_redo->add_do_method(workspace, "update");
+	undo_redo->add_undo_method(workspace, "update");
+	undo_redo->commit_action();
+
+	workspace->update();
+}
+
 void TileSetEditor::_on_grid_snap_toggled(bool p_val) {
 	helper->set_snap_options_visible(p_val);
 	workspace->update();
@@ -2095,7 +2166,8 @@ void TileSetEditor::_select_next_tile() {
 			case EDITMODE_OCCLUSION:
 			case EDITMODE_NAVIGATION:
 			case EDITMODE_PRIORITY:
-			case EDITMODE_Z_INDEX: {
+			case EDITMODE_Z_INDEX:
+			case EDITMODE_META: {
 				edited_shape_coord = Vector2();
 				_select_edited_shape_coord();
 			} break;
@@ -2129,7 +2201,8 @@ void TileSetEditor::_select_previous_tile() {
 			case EDITMODE_OCCLUSION:
 			case EDITMODE_NAVIGATION:
 			case EDITMODE_PRIORITY:
-			case EDITMODE_Z_INDEX: {
+			case EDITMODE_Z_INDEX:
+			case EDITMODE_META: {
 				int spacing = tileset->autotile_get_spacing(get_current_tile());
 				Vector2 size = tileset->tile_get_region(get_current_tile()).size;
 				Vector2 cell_count = (size / (tileset->autotile_get_size(get_current_tile()) + Vector2(spacing, spacing))).floor();
@@ -3645,3 +3718,4 @@ TileSetEditorPlugin::TileSetEditorPlugin(EditorNode *p_node) {
 	tileset_editor_button = p_node->add_bottom_panel_item(TTR("TileSet"), tileset_editor);
 	tileset_editor_button->hide();
 }
+

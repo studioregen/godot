@@ -199,6 +199,10 @@ bool TileSet::_set(const StringName &p_name, const Variant &p_value) {
 		tile_set_navigation_polygon_offset(id, p_value);
 	else if (what == "z_index")
 		tile_set_z_index(id, p_value);
+	else if (what == "leap_vert")
+		tile_set_leap_vert(id, p_value);
+	else if (what == "leap_horiz")
+		tile_set_leap_horiz(id, p_value);
 	else
 		return false;
 
@@ -313,6 +317,10 @@ bool TileSet::_get(const StringName &p_name, Variant &r_ret) const {
 		r_ret = tile_get_navigation_polygon_offset(id);
 	else if (what == "z_index")
 		r_ret = tile_get_z_index(id);
+	else if (what == "leap_vert")
+		r_ret = tile_get_leap_vert(id);
+	else if (what == "leap_horiz")
+		r_ret = tile_get_leap_horiz(id);
 	else
 		return false;
 
@@ -363,6 +371,8 @@ void TileSet::_get_property_list(List<PropertyInfo> *p_list) const {
 		p_list->push_back(PropertyInfo(Variant::REAL, pre + "shape_one_way_margin", PROPERTY_HINT_RANGE, "0,128,0.01", PROPERTY_USAGE_NOEDITOR));
 		p_list->push_back(PropertyInfo(Variant::ARRAY, pre + "shapes", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR));
 		p_list->push_back(PropertyInfo(Variant::INT, pre + "z_index", PROPERTY_HINT_RANGE, itos(VS::CANVAS_ITEM_Z_MIN) + "," + itos(VS::CANVAS_ITEM_Z_MAX) + ",1", PROPERTY_USAGE_NOEDITOR));
+		p_list->push_back(PropertyInfo(Variant::BOOL, pre + "leap_vert", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR));
+		p_list->push_back(PropertyInfo(Variant::BOOL, pre + "leap_horiz", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR));
 	}
 }
 
@@ -1041,6 +1051,32 @@ void TileSet::_tile_set_shapes(int p_id, const Array &p_shapes) {
 	emit_changed();
 }
 
+void TileSet::tile_set_leap_vert(int p_id, bool value){
+	ERR_FAIL_COND(!tile_map.has(p_id));
+
+	tile_map[p_id].vertical_leap = value;
+	emit_changed();
+}
+
+bool TileSet::tile_get_leap_vert(int p_id) const{
+	ERR_FAIL_COND_V(!tile_map.has(p_id), 0);
+
+	return tile_map[p_id].vertical_leap;
+}
+
+void TileSet::tile_set_leap_horiz(int p_id, bool value) {
+	ERR_FAIL_COND(!tile_map.has(p_id));
+
+	tile_map[p_id].horizontal_leap = value;
+	emit_changed();
+}
+
+bool TileSet::tile_get_leap_horiz(int p_id) const {
+	ERR_FAIL_COND_V(!tile_map.has(p_id), 0);
+
+	return tile_map[p_id].horizontal_leap;
+}
+
 Array TileSet::_tile_get_shapes(int p_id) const {
 
 	ERR_FAIL_COND_V(!tile_map.has(p_id), Array());
@@ -1214,6 +1250,11 @@ void TileSet::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("tile_get_occluder_offset", "id"), &TileSet::tile_get_occluder_offset);
 	ClassDB::bind_method(D_METHOD("tile_set_z_index", "id", "z_index"), &TileSet::tile_set_z_index);
 	ClassDB::bind_method(D_METHOD("tile_get_z_index", "id"), &TileSet::tile_get_z_index);
+
+	ClassDB::bind_method(D_METHOD("tile_set_leap_vert", "id", "value"), &TileSet::tile_set_leap_vert);
+	ClassDB::bind_method(D_METHOD("tile_get_leap_vert", "id"), &TileSet::tile_get_leap_vert);
+	ClassDB::bind_method(D_METHOD("tile_set_leap_horiz", "id", "value"), &TileSet::tile_set_leap_horiz);
+	ClassDB::bind_method(D_METHOD("tile_get_leap_horiz", "id"), &TileSet::tile_get_leap_horiz);
 
 	ClassDB::bind_method(D_METHOD("remove_tile", "id"), &TileSet::remove_tile);
 	ClassDB::bind_method(D_METHOD("clear"), &TileSet::clear);
