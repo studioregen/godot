@@ -280,8 +280,10 @@ static void _gen_shape_list(const Ref<Mesh> &mesh, List<Ref<Shape> > &r_shape_li
 
 	if (!p_convex) {
 
-		Ref<Shape> shape = mesh->create_trimesh_shape();
-		r_shape_list.push_back(shape);
+		List<Ref<Shape>> shapes = mesh->create_trimesh_shape_by_surface();
+		for (int i = 0; i < shapes.size(); i++) {
+			r_shape_list.push_back(shapes[i]);
+		}
 	} else {
 
 		Vector<Ref<Shape> > cd = mesh->convex_decompose();

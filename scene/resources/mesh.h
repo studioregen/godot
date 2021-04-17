@@ -131,11 +131,13 @@ public:
 	virtual StringName get_blend_shape_name(int p_index) const = 0;
 
 	PoolVector<Face3> get_faces() const;
+	PoolVector<Face3> surface_get_faces(int p_idx) const;
 	Ref<TriangleMesh> generate_triangle_mesh() const;
 	void generate_debug_mesh_lines(Vector<Vector3> &r_lines);
 	void generate_debug_mesh_indices(Vector<Vector3> &r_points);
 
 	Ref<Shape> create_trimesh_shape() const;
+	List<Ref<Shape>> create_trimesh_shape_by_surface() const;
 	Ref<Shape> create_convex_shape() const;
 
 	Ref<Mesh> create_outline(float p_margin) const;

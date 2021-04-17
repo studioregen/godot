@@ -230,6 +230,63 @@ PoolVector<Face3> Mesh::get_faces() const {
 */
 }
 
+PoolVector<Face3> Mesh::surface_get_faces(int p_idx) const {
+	const RID mesh = get_rid();
+
+	if (VisualServer::get_singleton()->mesh_surface_get_primitive_type( mesh, p_idx ) != VisualServer::PRIMITIVE_TRIANGLES )
+		return PoolVector<Face3>();
+
+	PoolVector<int> indices;
+	PoolVector<Vector3> vertices;
+
+	vertices = VisualServer::get_singleton()->mesh_surface_get_arrays(mesh, p_idx)[VisualServer::ARRAY_VERTEX];
+
+	int len=VisualServer::get_singleton()->mesh_surface_get_array_index_len(mesh, p_idx);
+	bool has_indices;
+
+	if (len>0) {
+
+		indices = VisualServer::get_singleton()->mesh_surface_get_arrays(mesh, p_idx)[VisualServer::ARRAY_INDEX];
+		has_indices=true;
+
+	} else {
+
+		len=vertices.size();
+		has_indices=false;
+	}
+
+	if (len<=0)
+		return PoolVector<Face3>();
+
+	PoolVector<int>::Read indicesr = indices.read();
+	const int *indicesptr = indicesr.ptr();
+
+	PoolVector<Vector3>::Read verticesr = vertices.read();
+	const Vector3 *verticesptr = verticesr.ptr();
+
+	PoolVector<Face3> faces;
+	faces.resize(len/3);
+
+	PoolVector<Face3>::Write facesw = faces.write();
+	Face3 *facesptr=facesw.ptr();
+
+
+	for (int i=0;i<len/3;i++) {
+
+		Face3 face;
+
+		for (int j=0;j<3;j++) {
+
+			int idx=i*3+j;
+			face.vertex[j] = has_indices ? verticesptr[ indicesptr[ idx ] ] : verticesptr[idx];
+		}
+
+		facesptr[i]=face;
+	}
+
+	return faces;
+}
+
 Ref<Shape> Mesh::create_convex_shape() const {
 
 	PoolVector<Vector3> vertices;
@@ -267,6 +324,34 @@ Ref<Shape> Mesh::create_trimesh_shape() const {
 	Ref<ConcavePolygonShape> shape = memnew(ConcavePolygonShape);
 	shape->set_faces(face_points);
 	return shape;
+}
+
+List<Ref<Shape>> Mesh::create_trimesh_shape_by_surface() const {
+	List<Ref<Shape>> shapes;
+	PoolVector<Face3> faces = get_faces();
+	const int surface_count = get_surface_count();
+
+	for (int i = 0; i < surface_count; i++) {
+		Ref<Material> m = surface_get_material(i);
+		PoolVector<Face3> faces = surface_get_faces(i);
+		Ref<ConcavePolygonShape> shape = memnew(ConcavePolygonShape);
+		PoolVector<Vector3> face_points;
+		face_points.resize(faces.size() * 3);
+
+		for (int i =0; i < face_points.size(); i += 3) {
+			Face3 f = faces.get(i / 3);
+			face_points.set(i, f.vertex[0]);
+			face_points.set(i + 1, f.vertex[1]);
+			face_points.set(i + 2, f.vertex[2]);
+		}
+
+		shape->set_faces(face_points);
+		shape->set_name(m->get_name());
+
+		shapes.push_back(shape);
+	}
+
+	return shapes;
 }
 
 Ref<Mesh> Mesh::create_outline(float p_margin) const {
