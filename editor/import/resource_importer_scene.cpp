@@ -532,19 +532,27 @@ Node *ResourceImporterScene::_fix_node(Node *p_node, Node *p_root, Map<Ref<Mesh>
 			}
 
 			if (shapes.size()) {
-				StaticBody *col = memnew(StaticBody);
-				col->set_name("static_collision");
-				mi->add_child(col);
-				col->set_owner(mi->get_owner());
-
 				int idx = 0;
 				for (List<Ref<Shape> >::Element *E = shapes.front(); E; E = E->next()) {
+					StaticBody *col = memnew(StaticBody);
+
+					if (E->get()->get_name().empty()) {
+						col->set_name("static_collision " + itos(idx));
+					} else {
+						col->set_name(E->get()->get_name().to_upper());
+					}
+					mi->add_child(col);
+					col->set_owner(mi->get_owner());
 
 					CollisionShape *cshape = memnew(CollisionShape);
 					cshape->set_shape(E->get());
 					col->add_child(cshape);
 
-					cshape->set_name("shape" + itos(idx));
+					if (E->get()->get_name().empty()) {
+						cshape->set_name("shape" + itos(idx));
+					} else {
+						cshape->set_name("shape-" + E->get()->get_name());
+					}
 					cshape->set_owner(p_node->get_owner());
 
 					idx++;
