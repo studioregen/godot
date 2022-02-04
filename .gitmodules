@@ -1,0 +1,6 @@
+[submodule "modules/midi"]
+	path = modules/midi
+	url = git@gitlab.com:studio-regen/godot-midi-module.git
+[submodule "modules/fg"]
+	path = modules/fg
+	url = git@gitlab.com:studio-regen/godot-fg-module.git
