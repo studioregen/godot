@@ -240,23 +240,8 @@ void ScrollBar::_notification(int p_what) {
 		case NOTIFICATION_DRAW: {
 			RID ci = get_canvas_item();
 
-			Ref<Texture2D> decr, incr;
-
-			if (decr_active) {
-				decr = theme_cache.decrement_pressed_icon;
-			} else if (highlight == HIGHLIGHT_DECR) {
-				decr = theme_cache.decrement_hl_icon;
-			} else {
-				decr = theme_cache.decrement_icon;
-			}
-
-			if (incr_active) {
-				incr = theme_cache.increment_pressed_icon;
-			} else if (highlight == HIGHLIGHT_INCR) {
-				incr = theme_cache.increment_hl_icon;
-			} else {
-				incr = theme_cache.increment_icon;
-			}
+        	Ref<Texture2D> decr = get_decrement_icon();
+        	Ref<Texture2D> incr = get_increment_icon();
 
 			Ref<StyleBox> bg = has_focus() ? theme_cache.scroll_focus_style : theme_cache.scroll_style;
 
@@ -296,20 +281,8 @@ void ScrollBar::_notification(int p_what) {
 			}
 
 			incr->draw(ci, ofs);
-			Rect2 grabber_rect;
-
-			if (orientation == HORIZONTAL) {
-				grabber_rect.size.width = get_grabber_size();
-				grabber_rect.size.height = get_size().height;
-				grabber_rect.position.y = 0;
-				grabber_rect.position.x = get_grabber_offset() + decr->get_width() + bg->get_margin(SIDE_LEFT);
-			} else {
-				grabber_rect.size.width = get_size().width;
-				grabber_rect.size.height = get_grabber_size();
-				grabber_rect.position.y = get_grabber_offset() + decr->get_height() + bg->get_margin(SIDE_TOP);
-				grabber_rect.position.x = 0;
-			}
-
+        	Rect2 grabber_rect = get_grabber_rect();
+			
 			grabber->draw(ci, grabber_rect);
 		} break;
 
@@ -490,7 +463,50 @@ double ScrollBar::get_area_offset() const {
 }
 
 double ScrollBar::get_grabber_offset() const {
-	return (get_area_size()) * get_as_ratio();
+    return (get_area_size()) * get_as_ratio();
+}
+
+Rect2 ScrollBar::get_grabber_rect() const
+{
+    Rect2 grabber_rect;
+    Ref<Texture2D> decr = get_decrement_icon();
+    Ref<StyleBox> bg = has_focus() ? theme_cache.scroll_focus_style : theme_cache.scroll_style;
+
+    if (orientation == HORIZONTAL) {
+		grabber_rect.size.width = get_grabber_size();
+		grabber_rect.size.height = get_size().height;
+		grabber_rect.position.y = 0;
+		grabber_rect.position.x = get_grabber_offset() + decr->get_width() + bg->get_margin(SIDE_LEFT);
+	} else {
+		grabber_rect.size.width = get_size().width;
+		grabber_rect.size.height = get_grabber_size();
+		grabber_rect.position.y = get_grabber_offset() + decr->get_height() + bg->get_margin(SIDE_TOP);
+		grabber_rect.position.x = 0;
+	}
+
+    return grabber_rect;
+}
+
+Ref<Texture2D> ScrollBar::get_increment_icon() const
+{
+	if (incr_active) {
+		return theme_cache.increment_pressed_icon;
+	} else if (highlight == HIGHLIGHT_INCR) {
+		return theme_cache.increment_hl_icon;
+	} else {
+		return theme_cache.increment_icon;
+	}
+}
+
+Ref<Texture2D> ScrollBar::get_decrement_icon() const
+{
+	if (decr_active) {
+		return theme_cache.decrement_pressed_icon;
+	} else if (highlight == HIGHLIGHT_DECR) {
+		return theme_cache.decrement_hl_icon;
+	} else {
+		return theme_cache.decrement_icon;
+	}
 }
 
 Size2 ScrollBar::get_minimum_size() const {
@@ -637,6 +653,10 @@ bool ScrollBar::is_smooth_scroll_enabled() const {
 void ScrollBar::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_custom_step", "step"), &ScrollBar::set_custom_step);
 	ClassDB::bind_method(D_METHOD("get_custom_step"), &ScrollBar::get_custom_step);
+	ClassDB::bind_method(D_METHOD("_drag_node_input"), &ScrollBar::_drag_node_input);
+	ClassDB::bind_method(D_METHOD("_drag_node_exit"), &ScrollBar::_drag_node_exit);
+    ClassDB::bind_method(D_METHOD("get_grabber_offset"), &ScrollBar::get_grabber_offset);
+    ClassDB::bind_method(D_METHOD("get_grabber_rect"), &ScrollBar::get_grabber_rect);
 
 	ADD_SIGNAL(MethodInfo("scrolling"));
 
