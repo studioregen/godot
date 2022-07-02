@@ -66,6 +66,9 @@ class ScrollBar : public Range {
 	double get_area_offset() const;
 	double get_click_pos(const Point2 &p_pos) const;
 	double get_grabber_offset() const;
+    Rect2 get_grabber_rect() const;
+    Ref<Texture> get_increment_icon() const;
+    Ref<Texture> get_decrement_icon() const;
 
 	static void set_can_focus_by_default(bool p_can_focus);
 
