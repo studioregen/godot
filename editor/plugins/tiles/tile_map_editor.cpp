@@ -73,6 +73,7 @@ void TileMapEditorTilesPlugin::_update_toolbar() {
 
 	// Show only the correct settings.
 	if (tool_buttons_group->get_pressed_button() == select_tool_button) {
+		export_selected_tiles->show();
 	} else if (tool_buttons_group->get_pressed_button() == paint_tool_button) {
 		tools_settings_vsep->show();
 		picker_button->show();
@@ -1545,6 +1546,86 @@ void TileMapEditorTilesPlugin::_fix_invalid_tiles_in_tile_map_selection() {
 		tile_map_selection.erase(cell);
 	}
 }
+
+void TileMapEditorTilesPlugin::_copy_selection_as_image() {
+	TileMap *tile_map = Object::cast_to<TileMap>(ObjectDB::get_instance(tile_map_id));
+	if (!tile_map) {
+		return;
+	}
+
+	Ref<TileSet> tile_set = tile_map->get_tileset();
+	if (!tile_set.is_valid()) {
+		return; 
+	}
+
+	const Size2i tile_size = tile_set->get_tile_size();
+
+	Vector2i min_tile = tile_map_selection.front()->get();
+	Vector2i max_tile = tile_map_selection.front()->get();
+
+	for (const Vector2i &tile_map_pos : tile_map_selection) {
+		if (tile_map_pos.x <= min_tile.x) {
+			min_tile.x = tile_map_pos.x;
+		}
+
+		if (tile_map_pos.x >= max_tile.x) {
+			max_tile.x = tile_map_pos.x;
+		}
+
+		if (tile_map_pos.y <= min_tile.y) {
+			min_tile.y = tile_map_pos.y;
+		}
+
+		if (tile_map_pos.y >= max_tile.y) {
+			max_tile.y = tile_map_pos.y;
+		}
+	}
+
+	// Add the "last tile" index just after selection for accurate dimensions
+	max_tile += Vector2i(1,1);
+
+	const Size2i selection_size = max_tile - min_tile;
+	const Size2i image_size = Vector2i( selection_size.x * tile_size.x, selection_size.y * tile_size.y );
+
+	Ref<Image> img = memnew(Image(image_size.x, image_size.y, false, Image::FORMAT_RGBA8));
+
+	print_line(stringify_variants(min_tile));
+	print_line(stringify_variants(max_tile));
+	for (int i = min_tile.x; i <= max_tile.x; i++) {
+		for (int j = min_tile.y; j <= max_tile.y; j++) {
+
+			Vector2i tile_map_pos = Vector2i(i,j);
+			Vector2i atlas_coords = tile_map->get_cell_atlas_coords(tile_map_layer, tile_map_pos);
+			TileMapCell cell = tile_map->get_cell(tile_map_layer, tile_map_pos);
+			const int atlas_source_id = cell.source_id;
+
+			TileSetSource* source =  *tile_set->get_source(atlas_source_id);
+			if (!source) {
+				continue;
+			}
+
+			TileSetAtlasSource* atlas_source = Object::cast_to<TileSetAtlasSource>(source);
+			if (!atlas_source) {
+				continue;
+			}
+
+			Ref<Texture2D> texture = atlas_source->get_texture();
+			Ref<Image> image = texture->get_image();
+			image->convert(Image::FORMAT_RGBA8);
+			
+			Vector2i source_texture_origin = Vector2i(atlas_coords.x * tile_size.x, atlas_coords.y * tile_size.y);
+			Rect2i source_rect = Rect2i(source_texture_origin, tile_size);
+
+			Vector2i relative_tilemap_pos = (tile_map_pos - min_tile);
+			Vector2i target_texture_origin = Vector2i(relative_tilemap_pos.x * tile_size.x, relative_tilemap_pos.y * tile_size.y);
+
+			img->blit_rect(image, source_rect, target_texture_origin);
+		}
+	}
+
+	img->save_png("/home/eoin/.config/godot/test.png");
+}
+
 void TileMapEditorTilesPlugin::patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index) {
 	if (p_mouse_button_index == MouseButton::LEFT) {
 		_update_selection_pattern_from_tileset_pattern_selection();
@@ -2147,6 +2228,12 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 	bucket_contiguous_checkbox->set_pressed(true);
 	tools_settings->add_child(bucket_contiguous_checkbox);
 
+	//
+	export_selected_tiles = memnew(Button);
+	export_selected_tiles->set_tooltip_text(TTR("Copy selection to clipboard."));
+	export_selected_tiles->connect("pressed", callable_mp(this, &TileMapEditorTilesPlugin::_copy_selection_as_image));
+	tools_settings->add_child(export_selected_tiles);
+
 	// Random tile checkbox.
 	random_tile_toggle = memnew(Button);
 	random_tile_toggle->set_flat(true);
@@ -2177,6 +2264,7 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 
 	// Default tool.
 	paint_tool_button->set_pressed(true);
+
 	_update_toolbar();
 
 	// --- Bottom panel tiles ---
@@ -3537,6 +3625,8 @@ void TileMapEditor::_advanced_menu_button_id_pressed(int p_id) {
 			}
 		}
 		undo_redo->commit_action();
+	} else if (p_id == 1) {
+		
 	}
 }
 
@@ -4053,6 +4143,7 @@ TileMapEditor::TileMapEditor() {
 	toggle_highlight_selected_layer_button->set_tooltip_text(TTR("Highlight Selected TileMap Layer"));
 	tile_map_toolbar->add_child(toggle_highlight_selected_layer_button);
 
+
 	tile_map_toolbar->add_child(memnew(VSeparator));
 
 	// Grid toggle.
@@ -4067,6 +4158,7 @@ TileMapEditor::TileMapEditor() {
 	advanced_menu_button = memnew(MenuButton);
 	advanced_menu_button->set_flat(true);
 	advanced_menu_button->get_popup()->add_item(TTR("Automatically Replace Tiles with Proxies"));
+	advanced_menu_button->get_popup()->add_item(TTR("Copy selected tile region to clipboard"));
 	advanced_menu_button->get_popup()->connect("id_pressed", callable_mp(this, &TileMapEditor::_advanced_menu_button_id_pressed));
 	tile_map_toolbar->add_child(advanced_menu_button);
 
