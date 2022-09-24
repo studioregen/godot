@@ -88,6 +88,7 @@ private:
 	VSeparator *tools_settings_vsep = nullptr;
 	Button *picker_button = nullptr;
 	Button *erase_button = nullptr;
+	Button *export_selected_tiles = nullptr;
 
 	VSeparator *tools_settings_vsep_2 = nullptr;
 	CheckBox *bucket_contiguous_checkbox = nullptr;
@@ -144,6 +145,8 @@ private:
 	void _update_tileset_selection_from_selection_pattern();
 	void _update_fix_selected_and_hovered();
 	void _fix_invalid_tiles_in_tile_map_selection();
+
+	void _copy_selection_as_image();
 
 	void patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index);
 
