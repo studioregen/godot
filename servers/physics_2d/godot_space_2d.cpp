@@ -1094,6 +1094,7 @@ void GodotSpace2D::body_add_to_state_query_list(SelfList<GodotBody2D> *p_body) {
 
 void GodotSpace2D::body_remove_from_state_query_list(SelfList<GodotBody2D> *p_body) {
 	state_query_list.remove(p_body);
+	p_body->self()->call_queries();
 }
 
 void GodotSpace2D::area_add_to_monitor_query_list(SelfList<GodotArea2D> *p_area) {
@@ -1102,6 +1103,7 @@ void GodotSpace2D::area_add_to_monitor_query_list(SelfList<GodotArea2D> *p_area)
 
 void GodotSpace2D::area_remove_from_monitor_query_list(SelfList<GodotArea2D> *p_area) {
 	monitor_query_list.remove(p_area);
+	p_area->self()->call_queries();
 }
 
 void GodotSpace2D::area_add_to_moved_list(SelfList<GodotArea2D> *p_area) {
