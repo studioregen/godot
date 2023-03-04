@@ -85,15 +85,17 @@ private:
 		uint64_t texture_id;
 		int32_t priority;
 		int32_t outline_size;
+		bool outline;
 
 		bool operator==(const SurfaceKey &p_b) const {
 			return (texture_id == p_b.texture_id) && (priority == p_b.priority) && (outline_size == p_b.outline_size);
 		}
 
-		SurfaceKey(uint64_t p_texture_id, int p_priority, int p_outline_size) {
+		SurfaceKey(uint64_t p_texture_id, int p_priority, int p_outline_size, bool p_outline) {
 			texture_id = p_texture_id;
 			priority = p_priority;
 			outline_size = p_outline_size;
+			outline = p_outline;
 		}
 	};
 
@@ -145,7 +147,7 @@ private:
 	bool dirty_font = true;
 	bool dirty_text = true;
 
-	void _generate_glyph_surfaces(const Glyph &p_glyph, Vector2 &r_offset, const Color &p_modulate, int p_priority = 0, int p_outline_size = 0);
+	void _generate_glyph_surfaces(const Glyph &p_glyph, Vector2 &r_offset, const Color &p_modulate, int p_priority = 0, int p_outline_size = 0, bool p_outline = false);
 
 protected:
 	GDVIRTUAL2RC(TypedArray<Vector3i>, _structured_text_parser, Array, String)
