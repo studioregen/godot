@@ -891,6 +891,43 @@ public:
 	virtual ~GradientTexture2D();
 };
 
+class GradientTexture4D : public Texture2D {
+	GDCLASS(GradientTexture4D, Texture2D);
+private:
+	mutable RID texture;
+	Color a;
+	Color b;
+	Color c;
+	Color d;
+
+	int width = 64;
+	int height = 64;
+
+	bool update_pending = false;
+	void _queue_update();
+	void _update();
+
+protected:
+	static void _bind_methods();
+
+public:
+	void set_colors(const Color& p_a, const Color& p_b, const Color& p_c, const Color& p_d);
+	void set_colors_from_dict(Dictionary);
+	Dictionary get_colors() const;
+
+	void set_width(int p_width);
+	virtual int get_width() const override;
+
+	void set_height(int p_height);
+	virtual int get_height() const override;
+
+	virtual RID get_rid() const override;
+	virtual Ref<Image> get_image() const override;
+
+	GradientTexture4D();
+	~GradientTexture4D();
+};
+
 VARIANT_ENUM_CAST(GradientTexture2D::Fill);
 VARIANT_ENUM_CAST(GradientTexture2D::Repeat);
 

@@ -2576,6 +2576,143 @@ void GradientTexture2D::_bind_methods() {
 
 //////////////////////////////////////
 
+GradientTexture4D::GradientTexture4D() {
+	_queue_update();
+}
+
+GradientTexture4D::~GradientTexture4D() {
+
+}
+
+void GradientTexture4D::_queue_update() {
+	if (update_pending != false) { // Call once.
+		return;
+	}
+
+	update_pending = true;
+	call_deferred(SNAME("_update"));
+}
+
+void GradientTexture4D::_update() {
+	update_pending = false;
+
+	Ref<Image> image;
+	image.instantiate();
+
+	Vector<uint8_t> data;
+	
+	const uint8_t COL_BYTE_COUNT = 4;
+	data.resize(width * height * COL_BYTE_COUNT);
+	{
+		uint8_t *wd8 = data.ptrw();
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				float x_pos = float(x) / float(width);
+				float y_pos = float(y) / float(height);
+				Color ab = a.lerp(b, x_pos);
+				Color dc = d.lerp(c, x_pos);
+				const Color &c = ab.lerp(dc, y_pos);
+				
+				wd8[(x + (y * width)) * COL_BYTE_COUNT + 0] = uint8_t(CLAMP(c.r * 255.0, 0, 255));
+				wd8[(x + (y * width)) * COL_BYTE_COUNT + 1] = uint8_t(CLAMP(c.g * 255.0, 0, 255));
+				wd8[(x + (y * width)) * COL_BYTE_COUNT + 2] = uint8_t(CLAMP(c.b * 255.0, 0, 255));
+				wd8[(x + (y * width)) * COL_BYTE_COUNT + 3] = uint8_t(CLAMP(c.a * 255.0, 0, 255));
+			}
+		}
+	}
+	image->set_data(width, height, false, Image::FORMAT_RGBA8, data);
+
+	if (texture.is_valid()) {
+		RID new_texture = RS::get_singleton()->texture_2d_create(image);
+		RS::get_singleton()->texture_replace(texture, new_texture);
+	} else {
+		texture = RS::get_singleton()->texture_2d_create(image);
+	}
+
+	emit_changed();
+}
+
+void GradientTexture4D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_colors", "a", "b", "c", "d"), &GradientTexture4D::set_colors);
+	ClassDB::bind_method(D_METHOD("set_colors_from_dict", "dict"), &GradientTexture4D::set_colors_from_dict);
+	ClassDB::bind_method(D_METHOD("get_colors"), &GradientTexture4D::get_colors);
+
+	ClassDB::bind_method(D_METHOD("set_width", "p_width"), &GradientTexture4D::set_width);
+	ClassDB::bind_method(D_METHOD("set_height", "p_height"), &GradientTexture4D::set_height);
+
+	ClassDB::bind_method(D_METHOD("_update"), &GradientTexture4D::_update);
+
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "colors"), "set_colors_from_dict", "get_colors");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "width"), "set_width", "get_width");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "height"), "set_height", "get_height");
+}
+
+void GradientTexture4D::set_colors(const Color &p_a, const Color &p_b, const Color &p_c, const Color &p_d) {
+	a = p_a;
+	b = p_b;
+	c = p_c;
+	d = p_d;
+	_queue_update();
+}
+
+void GradientTexture4D::set_colors_from_dict(Dictionary dict) {
+	Vector<StringName> names = {"a", "b", "c", "d"};
+	Color* colors[4] = {&a, &b, &c, &d};	
+	
+	for (int i = 0; i < 4; i++) {
+		if (dict.has(names[i])) {
+			*colors[i] = dict[names[i]];
+		}
+	}
+
+	_queue_update();
+}
+
+Dictionary GradientTexture4D::get_colors() const {
+	Dictionary dict;
+	dict["a"] = a;
+	dict["b"] = b;
+	dict["c"] = c;
+	dict["d"] = d;
+	
+	return dict;
+}
+
+void GradientTexture4D::set_width(int p_width) {
+	width = p_width;
+	_queue_update();
+}
+
+int GradientTexture4D::get_width() const {
+	return width;
+}
+
+void GradientTexture4D::set_height(int p_height) {
+	height = p_height;
+	_queue_update();
+}
+
+int GradientTexture4D::get_height() const {
+	return height;
+}
+
+RID GradientTexture4D::get_rid() const {
+	if (!texture.is_valid()) {
+		texture = RS::get_singleton()->texture_2d_placeholder_create();
+	}
+	return texture;
+}
+
+Ref<Image> GradientTexture4D::get_image() const {
+	if (texture.is_valid()) {
+		return RS::get_singleton()->texture_2d_get(texture);
+	} else {
+		return Ref<Image>();
+	}
+}
+
+//////////////////////////////////////
+
 void AnimatedTexture::_update_proxy() {
 	RWLockRead r(rw_lock);
 
@@ -3547,3 +3684,4 @@ PlaceholderTextureLayered::~PlaceholderTextureLayered() {
 	ERR_FAIL_NULL(RenderingServer::get_singleton());
 	RS::get_singleton()->free(rid);
 }
+

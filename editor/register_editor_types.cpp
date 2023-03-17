@@ -72,6 +72,7 @@
 #include "editor/plugins/gpu_particles_collision_sdf_editor_plugin.h"
 #include "editor/plugins/gradient_editor_plugin.h"
 #include "editor/plugins/gradient_texture_2d_editor_plugin.h"
+#include "editor/plugins/gradient_texture_4d_editor_plugin.h"
 #include "editor/plugins/input_event_editor_plugin.h"
 #include "editor/plugins/light_occluder_2d_editor_plugin.h"
 #include "editor/plugins/lightmap_gi_editor_plugin.h"
@@ -184,6 +185,7 @@ void register_editor_types() {
 	EditorPlugins::add_by_type<GPUParticlesCollisionSDF3DEditorPlugin>();
 	EditorPlugins::add_by_type<GradientEditorPlugin>();
 	EditorPlugins::add_by_type<GradientTexture2DEditorPlugin>();
+	EditorPlugins::add_by_type<GradientTexture4DEditorPlugin>();
 	EditorPlugins::add_by_type<InputEventEditorPlugin>();
 	EditorPlugins::add_by_type<LightmapGIEditorPlugin>();
 	EditorPlugins::add_by_type<MaterialEditorPlugin>();
