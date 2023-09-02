@@ -1591,8 +1591,6 @@ void TileMapEditorTilesPlugin::_copy_selection_as_image() {
 
 	Ref<Image> img = memnew(Image(image_size.x, image_size.y, false, Image::FORMAT_RGBA8));
 
-	print_line(stringify_variants(min_tile));
-	print_line(stringify_variants(max_tile));
 	for (int i = min_tile.x; i <= max_tile.x; i++) {
 		for (int j = min_tile.y; j <= max_tile.y; j++) {
 
@@ -1625,7 +1623,10 @@ void TileMapEditorTilesPlugin::_copy_selection_as_image() {
 		}
 	}
 
-	img->save_png("/home/eoin/.config/godot/test.png");
+	String config_path = OS::get_singleton()->get_config_path();
+
+	print_line(config_path + "/godot/test.png");
+	img->save_png(config_path + "/godot/test.png");
 }
 
 void TileMapEditorTilesPlugin::_remap_source_ids() {
@@ -1645,7 +1646,7 @@ void TileMapEditorTilesPlugin::_remap_source_ids() {
 	remap_source_dialog->set_selected_tiles(tile_map_selection);
 	remap_source_dialog->set_target_layer(tile_map_layer);
 	remap_source_dialog->set_original_sources(source_ids);
-	remap_source_dialog->popup_centered_ratio(0.5f);
+	remap_source_dialog->popup_centered_ratio(0.2f);
 }
 
 void TileMapEditorTilesPlugin::patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index) {
