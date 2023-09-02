@@ -73,7 +73,9 @@ void TileMapEditorTilesPlugin::_update_toolbar() {
 
 	// Show only the correct settings.
 	if (tool_buttons_group->get_pressed_button() == select_tool_button) {
+		tools_settings_vsep->show();
 		export_selected_tiles->show();
+		change_source_ids->show();
 	} else if (tool_buttons_group->get_pressed_button() == paint_tool_button) {
 		tools_settings_vsep->show();
 		picker_button->show();
@@ -1626,6 +1628,26 @@ void TileMapEditorTilesPlugin::_copy_selection_as_image() {
 	img->save_png("/home/eoin/.config/godot/test.png");
 }
 
+void TileMapEditorTilesPlugin::_remap_source_ids() {
+	TileMap *tile_map = Object::cast_to<TileMap>(ObjectDB::get_instance(tile_map_id));
+	if (!tile_map) {
+		return;
+	}
+
+	HashSet<int> source_ids; 
+	ERR_FAIL_INDEX(tile_map_layer, tile_map->get_layers_count());
+
+	for (const Vector2i &tile_map_pos : tile_map_selection) {
+		source_ids.insert(tile_map->get_cell_source_id(tile_map_layer, tile_map_pos));
+	}
+
+	remap_source_dialog->set_tile_map(tile_map);
+	remap_source_dialog->set_selected_tiles(tile_map_selection);
+	remap_source_dialog->set_target_layer(tile_map_layer);
+	remap_source_dialog->set_original_sources(source_ids);
+	remap_source_dialog->popup_centered_ratio(0.5f);
+}
+
 void TileMapEditorTilesPlugin::patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index) {
 	if (p_mouse_button_index == MouseButton::LEFT) {
 		_update_selection_pattern_from_tileset_pattern_selection();
@@ -2228,9 +2250,21 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 	bucket_contiguous_checkbox->set_pressed(true);
 	tools_settings->add_child(bucket_contiguous_checkbox);
 
-	//
+	// Remap source ids
+	change_source_ids = memnew(Button);
+	change_source_ids->set_tooltip_text(TTR("Remap source IDs"));
+	change_source_ids->set_text("Remap Sources"); // TEMP
+	change_source_ids->connect("pressed", callable_mp(this, &TileMapEditorTilesPlugin::_remap_source_ids));
+	tools_settings->add_child(change_source_ids);
+
+	remap_source_dialog = memnew(RemapSourceDialog);
+	toolbar->add_child(remap_source_dialog);
+	
+	// Save capture of region
 	export_selected_tiles = memnew(Button);
 	export_selected_tiles->set_tooltip_text(TTR("Copy selection to clipboard."));
+	export_selected_tiles->set_flat(true);
+	export_selected_tiles->set_text("Export"); // TEMP
 	export_selected_tiles->connect("pressed", callable_mp(this, &TileMapEditorTilesPlugin::_copy_selection_as_image));
 	tools_settings->add_child(export_selected_tiles);
 

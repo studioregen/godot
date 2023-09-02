@@ -32,6 +32,7 @@
 #define TILE_MAP_EDITOR_H
 
 #include "tile_atlas_view.h"
+#include "remap_source_dialog.h"
 
 #include "core/os/thread.h"
 #include "core/typedefs.h"
@@ -89,12 +90,14 @@ private:
 	Button *picker_button = nullptr;
 	Button *erase_button = nullptr;
 	Button *export_selected_tiles = nullptr;
+	Button *change_source_ids = nullptr;
 
 	VSeparator *tools_settings_vsep_2 = nullptr;
 	CheckBox *bucket_contiguous_checkbox = nullptr;
 	Button *random_tile_toggle = nullptr;
 
 	HBoxContainer *scatter_controls_container = nullptr;
+	RemapSourceDialog *remap_source_dialog = nullptr;
 	float scattering = 0.0;
 	Label *scatter_label = nullptr;
 	SpinBox *scatter_spinbox = nullptr;
@@ -147,6 +150,7 @@ private:
 	void _fix_invalid_tiles_in_tile_map_selection();
 
 	void _copy_selection_as_image();
+	void _remap_source_ids();
 
 	void patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index);
 
