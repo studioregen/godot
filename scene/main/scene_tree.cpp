@@ -602,7 +602,12 @@ void SceneTree::process_tweens(double p_delta, bool p_physics) {
 			continue;
 		}
 
-		if (!E->get()->step(p_delta)) {
+		double time_iteration = p_delta;
+		if (E->get()->should_ignore_timescale()) {
+			time_iteration = !p_physics ? Engine::get_singleton()->get_process_step() : 1.0 / double(Engine::get_singleton()->get_physics_ticks_per_second()); 
+		}
+
+		if (!E->get()->step(time_iteration)) {
 			E->get()->clear();
 			tweens.erase(E);
 		}
