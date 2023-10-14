@@ -37,6 +37,7 @@
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
+#include "editor/gui/editor_file_dialog.h"
 #include "editor/plugins/canvas_item_editor_plugin.h"
 
 #include "scene/2d/camera_2d.h"
@@ -1695,7 +1696,7 @@ void TileMapEditorTilesPlugin::_fix_invalid_tiles_in_tile_map_selection() {
 	}
 }
 
-void TileMapEditorTilesPlugin::_copy_selection_as_image() {
+void TileMapEditorTilesPlugin::_export_selection_as_image() {
 	TileMap *tile_map = Object::cast_to<TileMap>(ObjectDB::get_instance(tile_map_id));
 	if (!tile_map) {
 		return;
@@ -1770,8 +1771,16 @@ void TileMapEditorTilesPlugin::_copy_selection_as_image() {
 
 	String config_path = OS::get_singleton()->get_config_path();
 
-	print_line(config_path + "/godot/test.png");
-	img->save_png(config_path + "/godot/test.png");
+	file->set_file_mode(EditorFileDialog::FILE_MODE_SAVE_FILE);
+	file->set_filters({ "*.png" });
+	file->popup_file_dialog();
+
+	cached_export_tiles = img;
+}
+
+void TileMapEditorTilesPlugin::_on_export_selected_tiles_save(String p_path) {
+	cached_export_tiles->save_png(p_path);
+	cached_export_tiles.unref();
 }
 
 void TileMapEditorTilesPlugin::patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index) {
@@ -2423,7 +2432,7 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 	//
 	export_selected_tiles = memnew(Button);
 	export_selected_tiles->set_tooltip_text(TTR("Copy selection to clipboard."));
-	export_selected_tiles->connect("pressed", callable_mp(this, &TileMapEditorTilesPlugin::_copy_selection_as_image));
+	export_selected_tiles->connect("pressed", callable_mp(this, &TileMapEditorTilesPlugin::_export_selection_as_image));
 	tools_settings->add_child(export_selected_tiles);
 
 	// Random tile checkbox.
@@ -2433,6 +2442,11 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 	random_tile_toggle->set_tooltip_text(TTR("Place Random Tile"));
 	random_tile_toggle->connect("toggled", callable_mp(this, &TileMapEditorTilesPlugin::_on_random_tile_checkbox_toggled));
 	tools_settings->add_child(random_tile_toggle);
+
+	file = memnew(EditorFileDialog);
+	toolbar->add_child(file);
+	file->set_current_dir("user://");
+	file->connect("file_selected", callable_mp(this, &TileMapEditorTilesPlugin::_on_export_selected_tiles_save));
 
 	// Random tile scattering.
 	scatter_controls_container = memnew(HBoxContainer);
