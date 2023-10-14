@@ -98,6 +98,7 @@ private:
 	VSeparator *tools_settings_vsep = nullptr;
 	Button *picker_button = nullptr;
 	Button *erase_button = nullptr;
+	Button *export_selected_tiles = nullptr;
 
 	HBoxContainer *transform_toolbar = nullptr;
 	Button *transform_button_rotate_left = nullptr;
@@ -109,12 +110,16 @@ private:
 	CheckBox *bucket_contiguous_checkbox = nullptr;
 	Button *random_tile_toggle = nullptr;
 
+	class EditorFileDialog *file = nullptr;
+	Ref<Image> cached_export_tiles;
+
 	HBoxContainer *scatter_controls_container = nullptr;
 	float scattering = 0.0;
 	Label *scatter_label = nullptr;
 	SpinBox *scatter_spinbox = nullptr;
 	void _on_random_tile_checkbox_toggled(bool p_pressed);
 	void _on_scattering_spinbox_changed(double p_value);
+	void _on_export_selected_tiles_save(String p_path);
 
 	void _update_toolbar();
 	void _update_transform_buttons();
@@ -165,6 +170,8 @@ private:
 	void _update_tileset_selection_from_selection_pattern();
 	void _update_fix_selected_and_hovered();
 	void _fix_invalid_tiles_in_tile_map_selection();
+
+	void _export_selection_as_image();
 
 	void patterns_item_list_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index);
 
