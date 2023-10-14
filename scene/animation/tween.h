@@ -120,6 +120,7 @@ private:
 	bool valid = false;
 	bool default_parallel = false;
 	bool parallel_enabled = false;
+	bool ignore_timescale = false;
 #ifdef DEBUG_ENABLED
 	bool is_infinite = false;
 #endif
@@ -160,6 +161,9 @@ public:
 	TweenPauseMode get_pause_mode();
 
 	Ref<Tween> set_parallel(bool p_parallel);
+	Ref<Tween> set_ignore_timescale(bool p_ignore);
+	bool should_ignore_timescale() const;
+
 	Ref<Tween> set_loops(int p_loops);
 	int get_loops_left() const;
 	Ref<Tween> set_speed_scale(float p_speed);

@@ -225,6 +225,15 @@ Ref<Tween> Tween::set_parallel(bool p_parallel) {
 	return this;
 }
 
+Ref<Tween> Tween::set_ignore_timescale(bool p_ignore) {
+	ignore_timescale = p_ignore;
+	return this;
+}
+
+bool Tween::should_ignore_timescale() const {
+	return ignore_timescale;
+}
+
 Ref<Tween> Tween::set_loops(int p_loops) {
 	loops = p_loops;
 	return this;
@@ -451,6 +460,8 @@ void Tween::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_pause_mode", "mode"), &Tween::set_pause_mode);
 
 	ClassDB::bind_method(D_METHOD("set_parallel", "parallel"), &Tween::set_parallel, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("set_ignore_timescale", "ignore"), &Tween::set_ignore_timescale, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("should_ignore_timescale"), &Tween::should_ignore_timescale);
 	ClassDB::bind_method(D_METHOD("set_loops", "loops"), &Tween::set_loops, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("get_loops_left"), &Tween::get_loops_left);
 	ClassDB::bind_method(D_METHOD("set_speed_scale", "speed"), &Tween::set_speed_scale);
