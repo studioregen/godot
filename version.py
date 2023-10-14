@@ -1,5 +1,5 @@
-short_name = "godot"
-name = "Godot Engine"
+short_name = "godot.esuna"
+name = "Godot Engine [Esuna Edition]"
 major = 4
 minor = 2
 patch = 0
