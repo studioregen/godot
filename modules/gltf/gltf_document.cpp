@@ -2797,9 +2797,26 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 				array[Mesh::ARRAY_INDEX] = indices;
 			}
 
-			bool generate_tangents = p_state->force_generate_tangents && (primitive == Mesh::PRIMITIVE_TRIANGLES && !a.has("TANGENT") && a.has("TEXCOORD_0") && a.has("NORMAL"));
+			bool generate_tangents = p_state->force_generate_tangents && (primitive == Mesh::PRIMITIVE_TRIANGLES && !a.has("TANGENT") && a.has("NORMAL"));
 
-			if (p_state->force_disable_compression || !a.has("POSITION") || !a.has("NORMAL") || !(a.has("TANGENT") || generate_tangents) || p.has("targets") || (a.has("JOINTS_0") || a.has("JOINTS_1"))) {
+			if (generate_tangents && !a.has("TEXCOORD_0")) {
+				// If we don't have UVs we provide a dummy tangent array.
+				Vector<float> tangents;
+				tangents.resize(vertex_num * 4);
+				float *tangentsw = tangents.ptrw();
+
+				Vector<Vector3> normals = array[Mesh::ARRAY_NORMAL];
+				for (int k = 0; k < vertex_num; k++) {
+					Vector3 tan = Vector3(0.0, 1.0, 0.0).cross(normals[k]);
+					tangentsw[k * 4 + 0] = tan.x;
+					tangentsw[k * 4 + 1] = tan.y;
+					tangentsw[k * 4 + 2] = tan.z;
+					tangentsw[k * 4 + 3] = 1.0;
+				}
+				array[Mesh::ARRAY_TANGENT] = tangents;
+			}
+
+			if (p_state->force_disable_compression || !a.has("POSITION") || !a.has("NORMAL") || p.has("targets") || (a.has("JOINTS_0") || a.has("JOINTS_1"))) {
 				flags &= ~RS::ARRAY_FLAG_COMPRESS_ATTRIBUTES;
 			}
 
@@ -2810,7 +2827,7 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 				mesh_surface_tool->set_skin_weight_count(SurfaceTool::SKIN_8_WEIGHTS);
 			}
 			mesh_surface_tool->index();
-			if (generate_tangents) {
+			if (generate_tangents && a.has("TEXCOORD_0")) {
 				//must generate mikktspace tangents.. ergh..
 				mesh_surface_tool->generate_tangents();
 			}
@@ -5846,6 +5863,10 @@ void GLTFDocument::_generate_scene_node(Ref<GLTFState> p_state, const GLTFNodeIn
 		BoneAttachment3D *bone_attachment = _generate_bone_attachment(p_state, active_skeleton, p_node_index, gltf_node->parent);
 
 		p_scene_parent->add_child(bone_attachment, true);
+
+		// Find the correct bone_idx so we can properly serialize it.
+		bone_attachment->set_bone_idx(active_skeleton->find_bone(gltf_node->get_name()));
+
 		bone_attachment->set_owner(p_scene_root);
 
 		// There is no gltf_node that represent this, so just directly create a unique name
@@ -5949,6 +5970,10 @@ void GLTFDocument::_generate_skeleton_bone_node(Ref<GLTFState> p_state, const GL
 			BoneAttachment3D *bone_attachment = _generate_bone_attachment(p_state, active_skeleton, p_node_index, p_node_index);
 
 			p_scene_parent->add_child(bone_attachment, true);
+
+			// Find the correct bone_idx so we can properly serialize it.
+			bone_attachment->set_bone_idx(active_skeleton->find_bone(gltf_node->get_name()));
+
 			bone_attachment->set_owner(p_scene_root);
 
 			// There is no gltf_node that represent this, so just directly create a unique name
@@ -6224,7 +6249,9 @@ void GLTFDocument::_import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_
 				if (p_remove_immutable_tracks) {
 					Vector3 base_pos = p_state->nodes[track_i.key]->position;
 					for (int i = 0; i < track.position_track.times.size(); i++) {
-						Vector3 value = track.position_track.values[track.position_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i];
+						int value_index = track.position_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i;
+						ERR_FAIL_COND_MSG(value_index >= track.position_track.values.size(), "Animation sampler output accessor with 'CUBICSPLINE' interpolation doesn't have enough elements.");
+						Vector3 value = track.position_track.values[value_index];
 						if (!value.is_equal_approx(base_pos)) {
 							is_default = false;
 							break;
@@ -6244,7 +6271,9 @@ void GLTFDocument::_import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_
 				if (p_remove_immutable_tracks) {
 					Quaternion base_rot = p_state->nodes[track_i.key]->rotation.normalized();
 					for (int i = 0; i < track.rotation_track.times.size(); i++) {
-						Quaternion value = track.rotation_track.values[track.rotation_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i].normalized();
+						int value_index = track.rotation_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i;
+						ERR_FAIL_COND_MSG(value_index >= track.rotation_track.values.size(), "Animation sampler output accessor with 'CUBICSPLINE' interpolation doesn't have enough elements.");
+						Quaternion value = track.rotation_track.values[value_index].normalized();
 						if (!value.is_equal_approx(base_rot)) {
 							is_default = false;
 							break;
@@ -6264,7 +6293,9 @@ void GLTFDocument::_import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_
 				if (p_remove_immutable_tracks) {
 					Vector3 base_scale = p_state->nodes[track_i.key]->scale;
 					for (int i = 0; i < track.scale_track.times.size(); i++) {
-						Vector3 value = track.scale_track.values[track.scale_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i];
+						int value_index = track.scale_track.interpolation == GLTFAnimation::INTERP_CUBIC_SPLINE ? (1 + i * 3) : i;
+						ERR_FAIL_COND_MSG(value_index >= track.scale_track.values.size(), "Animation sampler output accessor with 'CUBICSPLINE' interpolation doesn't have enough elements.");
+						Vector3 value = track.scale_track.values[value_index];
 						if (!value.is_equal_approx(base_scale)) {
 							is_default = false;
 							break;

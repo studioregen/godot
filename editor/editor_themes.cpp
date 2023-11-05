@@ -55,7 +55,7 @@ void EditorColorMap::add_conversion_color_pair(const String p_from_color, const 
 	color_conversion_map[Color::html(p_from_color)] = Color::html(p_to_color);
 }
 
-void EditorColorMap::add_conversion_exception(const StringName p_icon_name) {
+void EditorColorMap::add_conversion_exception(const StringName &p_icon_name) {
 	color_conversion_exceptions.insert(p_icon_name);
 }
 
@@ -63,7 +63,7 @@ void EditorColorMap::create() {
 	// Some of the colors below are listed for completeness sake.
 	// This can be a basis for proper palette validation later.
 
-	// Convert:    FROM       TO
+	// Convert:               FROM       TO
 	add_conversion_color_pair("#478cbf", "#478cbf"); // Godot Blue
 	add_conversion_color_pair("#414042", "#414042"); // Godot Gray
 
@@ -215,6 +215,11 @@ void EditorColorMap::create() {
 	add_conversion_exception("Breakpoint");
 }
 
+void EditorColorMap::finish() {
+	color_conversion_map.clear();
+	color_conversion_exceptions.clear();
+}
+
 Vector<StringName> EditorTheme::editor_theme_types;
 
 // TODO: Refactor these and corresponding Theme methods to use the bool get_xxx(r_value) pattern internally.
@@ -301,13 +306,15 @@ Ref<StyleBox> EditorTheme::get_stylebox(const StringName &p_name, const StringNa
 	}
 }
 
-EditorTheme::EditorTheme() {
-	if (editor_theme_types.is_empty()) {
-		editor_theme_types.append(EditorStringName(Editor));
-		editor_theme_types.append(EditorStringName(EditorFonts));
-		editor_theme_types.append(EditorStringName(EditorIcons));
-		editor_theme_types.append(EditorStringName(EditorStyles));
-	}
+void EditorTheme::initialize() {
+	editor_theme_types.append(EditorStringName(Editor));
+	editor_theme_types.append(EditorStringName(EditorFonts));
+	editor_theme_types.append(EditorStringName(EditorIcons));
+	editor_theme_types.append(EditorStringName(EditorStyles));
+}
+
+void EditorTheme::finalize() {
+	editor_theme_types.clear();
 }
 
 // Editor theme generatior.
@@ -1801,7 +1808,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	if (increase_scrollbar_touch_area) {
 		theme->set_stylebox("scroll", "HScrollBar", make_line_stylebox(separator_color, 50));
 	} else {
-		theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, 1, 1, 1, 1));
+		theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, -5, 1, -5, 1));
 	}
 	theme->set_stylebox("scroll_focus", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, 1, 1, 1, 1));
 	theme->set_stylebox("grabber", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), EditorStringName(EditorIcons)), 6, 6, 6, 6, 1, 1, 1, 1));
@@ -1819,7 +1826,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	if (increase_scrollbar_touch_area) {
 		theme->set_stylebox("scroll", "VScrollBar", make_line_stylebox(separator_color, 50, 1, 1, true));
 	} else {
-		theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, 1, 1, 1, 1));
+		theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, 1, -5, 1, -5));
 	}
 	theme->set_stylebox("scroll_focus", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), EditorStringName(EditorIcons)), 5, 5, 5, 5, 1, 1, 1, 1));
 	theme->set_stylebox("grabber", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), EditorStringName(EditorIcons)), 6, 6, 6, 6, 1, 1, 1, 1));
@@ -2039,12 +2046,13 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	graphn_sb_panel_selected->set_corner_radius_individual(0, 0, corner_radius * EDSCALE, corner_radius * EDSCALE);
 	graphn_sb_panel_selected->set_expand_margin(SIDE_TOP, 17 * EDSCALE);
 
-	const int gn_titlebar_margin_side = 12;
-	Ref<StyleBoxFlat> graphn_sb_titlebar = make_flat_stylebox(graphnode_bg, gn_titlebar_margin_side, gn_margin_top, gn_titlebar_margin_side, 0, corner_width);
+	const int gn_titlebar_margin_left = 12;
+	const int gn_titlebar_margin_right = 4; // The rest is for the close button.
+	Ref<StyleBoxFlat> graphn_sb_titlebar = make_flat_stylebox(graphnode_bg, gn_titlebar_margin_left, gn_margin_top, gn_titlebar_margin_right, 0, corner_width);
 	graphn_sb_titlebar->set_expand_margin(SIDE_TOP, 2 * EDSCALE);
 	graphn_sb_titlebar->set_corner_radius_individual(corner_radius * EDSCALE, corner_radius * EDSCALE, 0, 0);
 
-	Ref<StyleBoxFlat> graphn_sb_titlebar_selected = make_flat_stylebox(graph_node_selected_border_color, gn_titlebar_margin_side, gn_margin_top, gn_titlebar_margin_side, 0, corner_width);
+	Ref<StyleBoxFlat> graphn_sb_titlebar_selected = make_flat_stylebox(graph_node_selected_border_color, gn_titlebar_margin_left, gn_margin_top, gn_titlebar_margin_right, 0, corner_width);
 	graphn_sb_titlebar_selected->set_corner_radius_individual(corner_radius * EDSCALE, corner_radius * EDSCALE, 0, 0);
 	graphn_sb_titlebar_selected->set_expand_margin(SIDE_TOP, 2 * EDSCALE);
 	Ref<StyleBoxEmpty> graphn_sb_slot = make_empty_stylebox(12, 0, 12, 0);

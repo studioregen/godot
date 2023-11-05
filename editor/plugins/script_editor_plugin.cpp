@@ -2520,9 +2520,7 @@ void ScriptEditor::save_current_script() {
 		// If built-in script, save the scene instead.
 		const String scene_path = resource->get_path().get_slice("::", 0);
 		if (!scene_path.is_empty()) {
-			Vector<String> scene_to_save;
-			scene_to_save.push_back(scene_path);
-			EditorNode::get_singleton()->save_scene_list(scene_to_save);
+			EditorNode::get_singleton()->save_scene_if_open(scene_path);
 		}
 	} else {
 		EditorNode::get_singleton()->save_resource(resource);
@@ -2534,7 +2532,7 @@ void ScriptEditor::save_current_script() {
 }
 
 void ScriptEditor::save_all_scripts() {
-	Vector<String> scenes_to_save;
+	HashSet<String> scenes_to_save;
 
 	for (int i = 0; i < tab_container->get_tab_count(); i++) {
 		ScriptEditorBase *se = Object::cast_to<ScriptEditorBase>(tab_container->get_tab_control(i));
@@ -2583,7 +2581,7 @@ void ScriptEditor::save_all_scripts() {
 			// For built-in scripts, save their scenes instead.
 			const String scene_path = edited_res->get_path().get_slice("::", 0);
 			if (!scene_path.is_empty() && !scenes_to_save.has(scene_path)) {
-				scenes_to_save.push_back(scene_path);
+				scenes_to_save.insert(scene_path);
 			}
 		}
 	}
@@ -4023,8 +4021,8 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	debugger->connect("set_execution", callable_mp(this, &ScriptEditor::_set_execution));
 	debugger->connect("clear_execution", callable_mp(this, &ScriptEditor::_clear_execution));
 	debugger->connect("breaked", callable_mp(this, &ScriptEditor::_breaked));
-	debugger->get_default_debugger()->connect("set_breakpoint", callable_mp(this, &ScriptEditor::_set_breakpoint));
-	debugger->get_default_debugger()->connect("clear_breakpoints", callable_mp(this, &ScriptEditor::_clear_breakpoints));
+	debugger->connect("breakpoint_set_in_tree", callable_mp(this, &ScriptEditor::_set_breakpoint));
+	debugger->connect("breakpoints_cleared_in_tree", callable_mp(this, &ScriptEditor::_clear_breakpoints));
 
 	menu_hb->add_spacer();
 
