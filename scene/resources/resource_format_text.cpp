@@ -35,6 +35,7 @@
 #include "core/io/missing_resource.h"
 #include "core/io/resource_format_binary.h"
 #include "core/object/script_language.h"
+#include "core/variant/variant_utility.h"
 #include "core/version.h"
 
 // Version 2: changed names for Basis, AABB, Vectors, etc.
@@ -281,7 +282,7 @@ Ref<PackedScene> ResourceLoaderText::_parse_node_tag(VariantParser::ResourcePars
 					if (error == ERR_FILE_MISSING_DEPENDENCIES) {
 						// Resource loading error, just skip it.
 					} else if (error != ERR_FILE_EOF) {
-						_printerr();
+						ERR_PRINT(vformat("Parse Error: %s. [Resource file %s:%d]", VariantUtilityFunctions::error_string(error), res_path, lines));
 						return Ref<PackedScene>();
 					} else {
 						error = OK;
