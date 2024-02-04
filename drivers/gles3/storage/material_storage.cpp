@@ -1178,7 +1178,6 @@ MaterialStorage::MaterialStorage() {
 		actions.usage_defines["SCREEN_PIXEL_SIZE"] = "@SCREEN_UV";
 		actions.usage_defines["NORMAL"] = "#define NORMAL_USED\n";
 		actions.usage_defines["NORMAL_MAP"] = "#define NORMAL_MAP_USED\n";
-		actions.usage_defines["LIGHT"] = "#define LIGHT_SHADER_CODE_USED\n";
 		actions.usage_defines["SPECULAR_SHININESS"] = "#define SPECULAR_SHININESS_USED\n";
 
 		actions.render_mode_defines["skip_vertex_transform"] = "#define SKIP_TRANSFORM_USED\n";
@@ -1325,9 +1324,6 @@ MaterialStorage::MaterialStorage() {
 		actions.usage_defines["SSS_TRANSMITTANCE_DEPTH"] = "#define ENABLE_TRANSMITTANCE\n";
 		actions.usage_defines["BACKLIGHT"] = "#define LIGHT_BACKLIGHT_USED\n";
 		actions.usage_defines["SCREEN_UV"] = "#define SCREEN_UV_USED\n";
-
-		actions.usage_defines["DIFFUSE_LIGHT"] = "#define USE_LIGHT_SHADER_CODE\n";
-		actions.usage_defines["SPECULAR_LIGHT"] = "#define USE_LIGHT_SHADER_CODE\n";
 
 		actions.usage_defines["FOG"] = "#define CUSTOM_FOG_USED\n";
 		actions.usage_defines["RADIANCE"] = "#define CUSTOM_RADIANCE_USED\n";
@@ -2968,17 +2964,17 @@ void SceneShaderData::set_code(const String &p_code) {
 	depth_test = DepthTest(depth_testi);
 	cull_mode = Cull(cull_modei);
 
-	vertex_input_mask = uint64_t(uses_normal);
-	vertex_input_mask |= uses_tangent << 1;
-	vertex_input_mask |= uses_color << 2;
-	vertex_input_mask |= uses_uv << 3;
-	vertex_input_mask |= uses_uv2 << 4;
-	vertex_input_mask |= uses_custom0 << 5;
-	vertex_input_mask |= uses_custom1 << 6;
-	vertex_input_mask |= uses_custom2 << 7;
-	vertex_input_mask |= uses_custom3 << 8;
-	vertex_input_mask |= uses_bones << 9;
-	vertex_input_mask |= uses_weights << 10;
+	vertex_input_mask = RS::ARRAY_FORMAT_VERTEX | RS::ARRAY_FORMAT_NORMAL; // We can always read vertices and normals.
+	vertex_input_mask |= uses_tangent << RS::ARRAY_TANGENT;
+	vertex_input_mask |= uses_color << RS::ARRAY_COLOR;
+	vertex_input_mask |= uses_uv << RS::ARRAY_TEX_UV;
+	vertex_input_mask |= uses_uv2 << RS::ARRAY_TEX_UV2;
+	vertex_input_mask |= uses_custom0 << RS::ARRAY_CUSTOM0;
+	vertex_input_mask |= uses_custom1 << RS::ARRAY_CUSTOM1;
+	vertex_input_mask |= uses_custom2 << RS::ARRAY_CUSTOM2;
+	vertex_input_mask |= uses_custom3 << RS::ARRAY_CUSTOM3;
+	vertex_input_mask |= uses_bones << RS::ARRAY_BONES;
+	vertex_input_mask |= uses_weights << RS::ARRAY_WEIGHTS;
 
 	uses_screen_texture = gen_code.uses_screen_texture;
 	uses_screen_texture_mipmaps = gen_code.uses_screen_texture_mipmaps;
@@ -2998,10 +2994,6 @@ void SceneShaderData::set_code(const String &p_code) {
 
 	if (uses_transmittance) {
 		WARN_PRINT_ONCE_ED("Transmittance is only available when using the Forward+ rendering backend.");
-	}
-
-	if (uses_depth_texture) {
-		WARN_PRINT_ONCE_ED("Reading from the depth texture is not supported when using the GL Compatibility backend yet. Support will be added in a future release.");
 	}
 
 	if (uses_normal_texture) {
