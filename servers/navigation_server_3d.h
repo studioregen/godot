@@ -84,6 +84,9 @@ public:
 	virtual void map_set_cell_height(RID p_map, real_t p_height) = 0;
 	virtual real_t map_get_cell_height(RID p_map) const = 0;
 
+	virtual void map_set_merge_rasterizer_cell_scale(RID p_map, float p_value) = 0;
+	virtual float map_get_merge_rasterizer_cell_scale(RID p_map) const = 0;
+
 	virtual void map_set_use_edge_connections(RID p_map, bool p_enabled) = 0;
 	virtual bool map_get_use_edge_connections(RID p_map) const = 0;
 
@@ -113,6 +116,7 @@ public:
 	virtual TypedArray<RID> map_get_obstacles(RID p_map) const = 0;
 
 	virtual void map_force_update(RID p_map) = 0;
+	virtual uint32_t map_get_iteration_id(RID p_map) const = 0;
 
 	virtual Vector3 map_get_random_point(RID p_map, uint32_t p_navigation_layers, bool p_uniformly) const = 0;
 

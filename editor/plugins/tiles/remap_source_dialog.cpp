@@ -10,12 +10,12 @@ void RemapSourceDialog::ok_pressed() {
 	}
 
 	for (const Vector2i &tile : target_tiles) {
-		const int sid = tile_map->get_cell_source_id(target_layer, tile, false);
-		const Vector2i atlasc = tile_map->get_cell_atlas_coords(target_layer, tile, false);
-		const int alt_tile = tile_map->get_cell_alternative_tile(target_layer, tile, false);
+		const int sid = layer->get_cell_source_id(tile, false);
+		const Vector2i atlasc = layer->get_cell_atlas_coords(tile, false);
+		const int alt_tile = layer->get_cell_alternative_tile(tile, false);
 
 		if (map.has(sid)) {
-			tile_map->set_cell(target_layer, tile, map[sid], atlasc, alt_tile);
+			layer->set_cell(tile, map[sid], atlasc, alt_tile);
 		}
 	}
 
@@ -50,12 +50,9 @@ void RemapSourceDialog::set_selected_tiles(RBSet<Vector2i> p_tiles) {
 	target_tiles = p_tiles;
 }
 
-void RemapSourceDialog::set_target_layer(int p_layer) {
-	target_layer = p_layer;
-}
-
-void RemapSourceDialog::set_tile_map(TileMap *p_tile_map) {
-	tile_map = p_tile_map;
+void RemapSourceDialog::set_tile_map_layer(TileMapLayer * p_tile_map_layer)
+{
+	layer = p_tile_map_layer;
 }
 
 RemapSourceDialog::RemapSourceDialog() {
