@@ -330,6 +330,7 @@ private:
 	void _scenes_update();
 	void _scenes_clear_cell(CellData &r_cell_data);
 	void _scenes_update_cell(CellData &r_cell_data);
+	String _scene_name_from_cell(const CellData &r_cell_data) const;
 #ifdef DEBUG_ENABLED
 	void _scenes_draw_cell_debug(const RID &p_canvas_item, const Vector2 &p_quadrant_pos, const CellData &r_cell_data);
 #endif // DEBUG_ENABLED
@@ -383,6 +384,8 @@ public:
 	Vector2i get_cell_atlas_coords(const Vector2i &p_coords, bool p_use_proxies = false) const;
 	int get_cell_alternative_tile(const Vector2i &p_coords, bool p_use_proxies = false) const;
 	TileData *get_cell_tile_data(const Vector2i &p_coords, bool p_use_proxies = false) const; // Helper method to make accessing the data easier.
+	NodePath get_cell_scene_path(const Vector2i &p_coords, bool p_use_proxies = false) const;
+
 	void clear();
 
 	// Patterns.

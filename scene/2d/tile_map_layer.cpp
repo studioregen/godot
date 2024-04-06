@@ -1283,6 +1283,7 @@ void TileMapLayer::_scenes_update_cell(CellData &r_cell_data) {
 				Ref<PackedScene> packed_scene = scenes_collection_source->get_scene_tile_scene(c.alternative_tile);
 				if (packed_scene.is_valid()) {
 					Node *scene = packed_scene->instantiate();
+					scene->set_name(_scene_name_from_cell(r_cell_data));
 					Control *scene_as_control = Object::cast_to<Control>(scene);
 					Node2D *scene_as_node2d = Object::cast_to<Node2D>(scene);
 					if (scene_as_control) {
@@ -1298,6 +1299,11 @@ void TileMapLayer::_scenes_update_cell(CellData &r_cell_data) {
 			}
 		}
 	}
+}
+
+
+String TileMapLayer::_scene_name_from_cell(const CellData &r_cell_data) const {
+	return vformat("CellScene_%d-%d-%d", layer_index_in_tile_map_node, r_cell_data.coords.x, r_cell_data.coords.y);
 }
 
 #ifdef DEBUG_ENABLED
@@ -2300,6 +2306,30 @@ TileData *TileMapLayer::get_cell_tile_data(const Vector2i &p_coords, bool p_use_
 	}
 
 	return nullptr;
+}
+
+NodePath TileMapLayer::get_cell_scene_path(const Vector2i & p_coords, bool p_use_proxies) const
+{
+	int source_id = get_cell_source_id(p_coords, p_use_proxies);
+	if (source_id == TileSet::INVALID_SOURCE) {
+		return NodePath();
+	}
+
+
+	const Ref<TileSet> &tile_set = get_effective_tile_set();
+	Ref<TileSetScenesCollectionSource> scene_source = tile_set->get_source(source_id);
+	if (scene_source.is_valid()) {
+		String scene_name = _scene_name_from_cell(tile_map[p_coords]);
+		TileMap* map = _fetch_tilemap();
+		
+		if (!map || !map->has_node(scene_name)) {
+			return NodePath();
+		}
+
+		return vformat("%s/%s", map->get_path(), scene_name);
+	}
+
+	return NodePath();
 }
 
 void TileMapLayer::clear() {
