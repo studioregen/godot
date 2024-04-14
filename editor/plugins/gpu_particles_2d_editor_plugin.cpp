@@ -39,6 +39,7 @@
 #include "scene/2d/cpu_particles_2d.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/separator.h"
+#include "scene/resources/atlas_texture.h"
 #include "scene/resources/image_texture.h"
 #include "scene/resources/particle_process_material.h"
 
@@ -175,33 +176,42 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 
 	Ref<Image> img;
 	img.instantiate();
-	Error err = ImageLoader::load_image(source_emission_file, img);
-	ERR_FAIL_COND_MSG(err != OK, "Error loading image '" + source_emission_file + "'.");
+
+	Ref<AtlasTexture> atlas_texture = ResourceLoader::load(source_emission_file);
+	if (atlas_texture.is_valid()) {
+		Error err = ImageLoader::load_image(atlas_texture->get_atlas()->get_path(), img);
+		ERR_FAIL_COND_MSG(err != OK, "Error loading image '" + atlas_texture->get_atlas()->get_path() + "'.");
+	} else {
+		Error err = ImageLoader::load_image(source_emission_file, img);
+		ERR_FAIL_COND_MSG(err != OK, "Error loading image '" + source_emission_file + "'.");
+	}
 
 	if (img->is_compressed()) {
 		img->decompress();
 	}
 	img->convert(Image::FORMAT_RGBA8);
 	ERR_FAIL_COND(img->get_format() != Image::FORMAT_RGBA8);
-	Size2i s = img->get_size();
-	ERR_FAIL_COND(s.width == 0 || s.height == 0);
+	Size2i region_s = atlas_texture.is_valid() ? Size2i(atlas_texture->get_size()) : img->get_size();
+	Size2i image_s = img->get_size(); 
+	Vector2i off = atlas_texture.is_valid() ? Vector2i(atlas_texture->get_region().get_position()) : Vector2i(0,0);
+	ERR_FAIL_COND(image_s.width == 0 || image_s.height == 0);
 
 	Vector<Point2> valid_positions;
 	Vector<Point2> valid_normals;
 	Vector<uint8_t> valid_colors;
 
-	valid_positions.resize(s.width * s.height);
+	valid_positions.resize(region_s.width * region_s.height);
 
 	EmissionMode emode = (EmissionMode)emission_mask_mode->get_selected();
 
 	if (emode == EMISSION_MODE_BORDER_DIRECTED) {
-		valid_normals.resize(s.width * s.height);
+		valid_normals.resize(region_s.width * region_s.height);
 	}
 
 	bool capture_colors = emission_colors->is_pressed();
 
 	if (capture_colors) {
-		valid_colors.resize(s.width * s.height * 4);
+		valid_colors.resize(region_s.width * region_s.height * 4);
 	}
 
 	int vpc = 0;
@@ -210,17 +220,17 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 		Vector<uint8_t> img_data = img->get_data();
 		const uint8_t *r = img_data.ptr();
 
-		for (int i = 0; i < s.width; i++) {
-			for (int j = 0; j < s.height; j++) {
-				uint8_t a = r[(j * s.width + i) * 4 + 3];
+		for (int i = off.x; i < (off.x + region_s.width); i++) {
+			for (int j = off.y; j < (off.y + region_s.height); j++) {
+				uint8_t a = r[(j * image_s.width + i) * 4 + 3];
 
 				if (a > 128) {
 					if (emode == EMISSION_MODE_SOLID) {
 						if (capture_colors) {
-							valid_colors.write[vpc * 4 + 0] = r[(j * s.width + i) * 4 + 0];
-							valid_colors.write[vpc * 4 + 1] = r[(j * s.width + i) * 4 + 1];
-							valid_colors.write[vpc * 4 + 2] = r[(j * s.width + i) * 4 + 2];
-							valid_colors.write[vpc * 4 + 3] = r[(j * s.width + i) * 4 + 3];
+							valid_colors.write[vpc * 4 + 0] = r[(j * image_s.width + i) * 4 + 0];
+							valid_colors.write[vpc * 4 + 1] = r[(j * image_s.width + i) * 4 + 1];
+							valid_colors.write[vpc * 4 + 2] = r[(j * image_s.width + i) * 4 + 2];
+							valid_colors.write[vpc * 4 + 3] = r[(j * image_s.width + i) * 4 + 3];
 						}
 						valid_positions.write[vpc++] = Point2(i, j);
 
@@ -228,7 +238,7 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 						bool on_border = false;
 						for (int x = i - 1; x <= i + 1; x++) {
 							for (int y = j - 1; y <= j + 1; y++) {
-								if (x < 0 || y < 0 || x >= s.width || y >= s.height || r[(y * s.width + x) * 4 + 3] <= 128) {
+								if (x < 0 || y < 0 || x >= image_s.width || y >= image_s.height || r[(y * image_s.width + x) * 4 + 3] <= 128) {
 									on_border = true;
 									break;
 								}
@@ -250,7 +260,7 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 											continue;
 										}
 
-										if (x < 0 || y < 0 || x >= s.width || y >= s.height || r[(y * s.width + x) * 4 + 3] <= 128) {
+										if (x < 0 || y < 0 || x >= image_s.width || y >= image_s.height || r[(y * image_s.width + x) * 4 + 3] <= 128) {
 											normal += Vector2(x - i, y - j).normalized();
 										}
 									}
@@ -261,10 +271,10 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 							}
 
 							if (capture_colors) {
-								valid_colors.write[vpc * 4 + 0] = r[(j * s.width + i) * 4 + 0];
-								valid_colors.write[vpc * 4 + 1] = r[(j * s.width + i) * 4 + 1];
-								valid_colors.write[vpc * 4 + 2] = r[(j * s.width + i) * 4 + 2];
-								valid_colors.write[vpc * 4 + 3] = r[(j * s.width + i) * 4 + 3];
+								valid_colors.write[vpc * 4 + 0] = r[(j * image_s.width + i) * 4 + 0];
+								valid_colors.write[vpc * 4 + 1] = r[(j * image_s.width + i) * 4 + 1];
+								valid_colors.write[vpc * 4 + 2] = r[(j * image_s.width + i) * 4 + 2];
+								valid_colors.write[vpc * 4 + 3] = r[(j * image_s.width + i) * 4 + 3];
 							}
 
 							vpc++;
@@ -292,7 +302,7 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 	{
 		Vector2 offset;
 		if (emission_mask_centered->is_pressed()) {
-			offset = Vector2(-s.width * 0.5, -s.height * 0.5);
+			offset = Vector2(-region_s.width * 0.5 - off.x, -region_s.height * 0.5 - off.y);
 		}
 
 		uint8_t *tw = texdata.ptrw();
