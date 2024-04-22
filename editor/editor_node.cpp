@@ -4963,7 +4963,9 @@ void EditorNode::_load_central_editor_layout_from_config(Ref<ConfigFile> p_confi
 }
 
 void EditorNode::_load_open_scenes_from_config(Ref<ConfigFile> p_layout) {
-	if (!bool(EDITOR_GET("interface/scene_tabs/restore_scenes_on_load"))) {
+	const SessionRestorePolicy POLICY = SessionRestorePolicy(int(EDITOR_GET("interface/scene_tabs/restore_scenes_on_load")));
+
+	if (POLICY == RESTORE_NONE) {
 		return;
 	}
 
@@ -4974,14 +4976,24 @@ void EditorNode::_load_open_scenes_from_config(Ref<ConfigFile> p_layout) {
 
 	restoring_scenes = true;
 
-	PackedStringArray scenes = p_layout->get_value(EDITOR_NODE_CONFIG_SECTION, "open_scenes");
-	for (int i = 0; i < scenes.size(); i++) {
-		load_scene(scenes[i]);
-	}
+	const PackedStringArray scenes = p_layout->get_value(EDITOR_NODE_CONFIG_SECTION, "open_scenes");
+	const bool has_current_scene = p_layout->has_section_key(EDITOR_NODE_CONFIG_SECTION, "current_scene");
+	const String current_scene = has_current_scene ? p_layout->get_value(EDITOR_NODE_CONFIG_SECTION, "current_scene") : "";
 
-	if (p_layout->has_section_key(EDITOR_NODE_CONFIG_SECTION, "current_scene")) {
-		String current_scene = p_layout->get_value(EDITOR_NODE_CONFIG_SECTION, "current_scene");
-		int current_scene_idx = scenes.find(current_scene);
+	if (POLICY == RESTORE_ACTIVE && has_current_scene) {
+		load_scene(current_scene);
+	} else { // RESTORE_ALL
+		int current_scene_idx = -1;
+		for (int i = 0; i < scenes.size(); i++) {
+			const bool is_current_scene = has_current_scene && current_scene == scenes[i];
+
+			load_scene(scenes[i]);
+
+			if (is_current_scene) {
+				current_scene_idx = i;
+			}
+		}
+
 		if (current_scene_idx >= 0) {
 			_set_current_scene(current_scene_idx);
 		}
@@ -4993,7 +5005,7 @@ void EditorNode::_load_open_scenes_from_config(Ref<ConfigFile> p_layout) {
 }
 
 bool EditorNode::has_scenes_in_session() {
-	if (!bool(EDITOR_GET("interface/scene_tabs/restore_scenes_on_load"))) {
+	if (int(EDITOR_GET("interface/scene_tabs/restore_scenes_on_load")) == RESTORE_NONE) {
 		return false;
 	}
 	Ref<ConfigFile> config;
