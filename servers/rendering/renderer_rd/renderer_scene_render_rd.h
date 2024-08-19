@@ -117,6 +117,7 @@ protected:
 	RendererRD::GI gi;
 
 	virtual void _update_shader_quality_settings() {}
+	static bool _debug_draw_can_use_effects(RS::ViewportDebugDraw p_debug_draw);
 
 private:
 	RS::ViewportDebugDraw debug_draw = RS::VIEWPORT_DEBUG_DRAW_DISABLED;
@@ -163,9 +164,9 @@ public:
 
 	/* LIGHTING */
 
-	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size){};
-	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture){};
-	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size){};
+	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size) {};
+	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) {};
+	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size) {};
 
 	/* GI */
 

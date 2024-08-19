@@ -31,7 +31,7 @@
 #ifndef GPU_PARTICLES_3D_EDITOR_PLUGIN_H
 #define GPU_PARTICLES_3D_EDITOR_PLUGIN_H
 
-#include "editor/editor_plugin.h"
+#include "editor/plugins/editor_plugin.h"
 #include "scene/3d/gpu_particles_3d.h"
 #include "scene/gui/spin_box.h"
 
@@ -59,7 +59,7 @@ protected:
 	Vector<Face3> geometry;
 
 	bool _generate(Vector<Vector3> &points, Vector<Vector3> &normals);
-	virtual void _generate_emission_points(){};
+	virtual void _generate_emission_points() {};
 	void _node_selected(const NodePath &p_path);
 
 	static void _bind_methods();

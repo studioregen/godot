@@ -30,7 +30,6 @@
 
 #include "gradient_texture.h"
 
-#include "core/core_string_names.h"
 #include "core/math/geometry_2d.h"
 
 GradientTexture1D::GradientTexture1D() {
@@ -137,6 +136,7 @@ void GradientTexture1D::_update() {
 			texture = RS::get_singleton()->texture_2d_create(image);
 		}
 	}
+	RS::get_singleton()->texture_set_path(texture, get_path());
 }
 
 void GradientTexture1D::set_width(int p_width) {
@@ -276,6 +276,7 @@ void GradientTexture2D::_update() {
 	} else {
 		texture = RS::get_singleton()->texture_2d_create(image);
 	}
+	RS::get_singleton()->texture_set_path(texture, get_path());
 }
 
 float GradientTexture2D::_get_gradient_offset_at(int x, int y) const {
@@ -459,13 +460,11 @@ void GradientTexture2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(REPEAT_MIRROR);
 }
 
-
 GradientTexture4D::GradientTexture4D() {
 	_queue_update();
 }
 
 GradientTexture4D::~GradientTexture4D() {
-
 }
 
 void GradientTexture4D::_queue_update() {
@@ -484,7 +483,7 @@ void GradientTexture4D::_update() {
 	image.instantiate();
 
 	Vector<uint8_t> data;
-	
+
 	const uint8_t COL_BYTE_COUNT = 4;
 	data.resize(width * height * COL_BYTE_COUNT);
 	{
@@ -496,7 +495,7 @@ void GradientTexture4D::_update() {
 				Color ab = a.lerp(b, x_pos);
 				Color dc = d.lerp(c, x_pos);
 				const Color &c = ab.lerp(dc, y_pos);
-				
+
 				wd8[(x + (y * width)) * COL_BYTE_COUNT + 0] = uint8_t(CLAMP(c.r * 255.0, 0, 255));
 				wd8[(x + (y * width)) * COL_BYTE_COUNT + 1] = uint8_t(CLAMP(c.g * 255.0, 0, 255));
 				wd8[(x + (y * width)) * COL_BYTE_COUNT + 2] = uint8_t(CLAMP(c.b * 255.0, 0, 255));
@@ -540,9 +539,9 @@ void GradientTexture4D::set_colors(const Color &p_a, const Color &p_b, const Col
 }
 
 void GradientTexture4D::set_colors_from_dict(Dictionary dict) {
-	Vector<StringName> names = {"a", "b", "c", "d"};
-	Color* colors[4] = {&a, &b, &c, &d};	
-	
+	Vector<StringName> names = { "a", "b", "c", "d" };
+	Color *colors[4] = { &a, &b, &c, &d };
+
 	for (int i = 0; i < 4; i++) {
 		if (dict.has(names[i])) {
 			*colors[i] = dict[names[i]];
@@ -558,7 +557,7 @@ Dictionary GradientTexture4D::get_colors() const {
 	dict["b"] = b;
 	dict["c"] = c;
 	dict["d"] = d;
-	
+
 	return dict;
 }
 
@@ -594,4 +593,3 @@ Ref<Image> GradientTexture4D::get_image() const {
 		return Ref<Image>();
 	}
 }
-

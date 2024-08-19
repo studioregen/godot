@@ -32,9 +32,8 @@
 #define GRADIENT_TEXTURE_4D_EDITOR_PLUGIN_H
 
 #include "editor/editor_inspector.h"
-#include "editor/editor_plugin.h"
+#include "editor/plugins/editor_plugin.h"
 #include "scene/resources/gradient_texture.h"
-
 
 class GradientTexture4DEditorRect : public Control {
 	GDCLASS(GradientTexture4DEditorRect, Control);
@@ -67,6 +66,7 @@ public:
 
 class GradientTexture4DEditor : public VBoxContainer {
 	GDCLASS(GradientTexture4DEditor, VBoxContainer);
+
 public:
 	enum ColorQuadType {
 		INVALID = -1,
@@ -77,7 +77,6 @@ public:
 		COLOR_COUNT
 	};
 
-
 private:
 	Ref<GradientTexture4D> texture;
 
@@ -87,14 +86,13 @@ private:
 
 public:
 	void set_texture(Ref<GradientTexture4D> &p_texture);
-	void set_colors(const Color& a, const Color& b, const Color& c, const Color& d);
-	void set_color(const Color& a, const ColorQuadType type);
+	void set_colors(const Color &a, const Color &b, const Color &c, const Color &d);
+	void set_color(const Color &a, const ColorQuadType type);
 
 	GradientTexture4DEditor();
 };
 
 VARIANT_ENUM_CAST(GradientTexture4DEditor::ColorQuadType);
-
 
 class EditorInspectorPluginGradientTexture4D : public EditorInspectorPlugin {
 	GDCLASS(EditorInspectorPluginGradientTexture4D, EditorInspectorPlugin);
