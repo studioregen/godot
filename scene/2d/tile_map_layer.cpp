@@ -2389,16 +2389,23 @@ NodePath TileMapLayer::get_cell_scene_path(const Vector2i &p_coords) const {
 		return NodePath();
 	}
 
-	const Ref<TileSet> &tile_set = get_tile_set();
-	Ref<TileSetScenesCollectionSource> scene_source = tile_set->get_source(source_id);
+	Ref<TileSetScenesCollectionSource> scene_source = get_tile_set()->get_source(source_id);
 	if (scene_source.is_valid()) {
 		String scene_name = _scene_name_from_cell(tile_map_layer_data[p_coords]);
 
-		if (!has_node(scene_name)) {
-			return NodePath();
-		}
+		if (tile_map_node != nullptr) { // Compatibility layer for tilemap, probably will be removed in godot 5 (if not earlier...)
+			if (!tile_map_node->has_node(scene_name)) {
+				return NodePath();
+			}
 
-		return vformat("%s/%s", get_path(), scene_name);
+			return vformat("%s/%s", tile_map_node->get_path(), scene_name);
+		} else {
+			if (!has_node(scene_name)) {
+				return NodePath();
+			}
+
+			return vformat("%s/%s", get_path(), scene_name);
+		}
 	}
 
 	return NodePath();
