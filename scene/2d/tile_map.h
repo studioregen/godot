@@ -148,6 +148,15 @@ public:
 	void set_layer_navigation_map(int p_layer, RID p_map);
 	RID get_layer_navigation_map(int p_layer) const;
 
+	void set_layer_dropshadow_enabled(int p_layer, bool p_enabled);
+	bool is_layer_dropshadow_enabled(int p_layer) const;
+
+	void set_layer_dropshadow_offset(int p_layer, Vector2i p_offset);
+	Vector2i get_layer_dropshadow_offset(int p_layer) const;
+
+	void set_layer_dropshadow_mod_color(int p_layer, Color p_color);
+	Color get_layer_dropshadow_mod_color(int p_layer) const;
+
 	void set_collision_animatable(bool p_collision_animatable);
 	bool is_collision_animatable() const;
 
