@@ -211,7 +211,8 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 	// If so, recreate everything.
 	bool quadrant_shape_changed = dirty.flags[DIRTY_FLAGS_LAYER_Y_SORT_ENABLED] || dirty.flags[DIRTY_FLAGS_TILE_SET] ||
 			(is_y_sort_enabled() && (dirty.flags[DIRTY_FLAGS_LAYER_Y_SORT_ORIGIN] || dirty.flags[DIRTY_FLAGS_LAYER_X_DRAW_ORDER_REVERSED] || dirty.flags[DIRTY_FLAGS_LAYER_LOCAL_TRANSFORM])) ||
-			(!is_y_sort_enabled() && dirty.flags[DIRTY_FLAGS_LAYER_RENDERING_QUADRANT_SIZE]);
+			(!is_y_sort_enabled() && dirty.flags[DIRTY_FLAGS_LAYER_RENDERING_QUADRANT_SIZE]) ||
+			dirty.flags[DIRTY_FLAGS_LAYER_DROPSHADOW_CHANGED];
 
 	// Free all quadrants.
 	if (forced_cleanup || quadrant_shape_changed) {
@@ -280,6 +281,7 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 				Ref<Material> prev_material;
 				int prev_z_index = 0;
 				RID prev_ci;
+				RID prev_dropshadow;
 
 				for (SelfList<CellData> *cell_data_quadrant_list_element = rendering_quadrant->cells.first(); cell_data_quadrant_list_element; cell_data_quadrant_list_element = cell_data_quadrant_list_element->next()) {
 					CellData &cell_data = *cell_data_quadrant_list_element->self();
@@ -301,9 +303,10 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 
 					// --- CanvasItems ---
 					RID ci;
+					RID dropshadow_ci;
 
 					// Check if the material or the z_index changed.
-					if (prev_ci == RID() || prev_material != mat || prev_z_index != tile_z_index) {
+					if (prev_ci == RID() || dropshadow_ci == RID() || prev_material != mat || prev_z_index != tile_z_index) {
 						// If so, create a new CanvasItem.
 						ci = rs->canvas_item_create();
 						if (needs_set_not_interpolated) {
@@ -325,15 +328,42 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 						rs->canvas_item_set_default_texture_filter(ci, RS::CanvasItemTextureFilter(get_texture_filter_in_tree()));
 						rs->canvas_item_set_default_texture_repeat(ci, RS::CanvasItemTextureRepeat(get_texture_repeat_in_tree()));
 
+						if (render_dropshadow) { // DROP SHADOW SETUP LOGIC START
+							dropshadow_ci = rs->canvas_item_create();
+							if (mat.is_valid()) {
+								rs->canvas_item_set_material(dropshadow_ci, mat->get_rid());
+							}
+							rs->canvas_item_set_parent(dropshadow_ci, get_canvas_item());
+							rs->canvas_item_set_use_parent_material(dropshadow_ci, !mat.is_valid());
+							Transform2D ds_xform(0, rendering_quadrant->canvas_items_position);
+
+							rs->canvas_item_set_transform(dropshadow_ci, xform);
+
+							rs->canvas_item_set_light_mask(dropshadow_ci, get_light_mask());
+
+							rs->canvas_item_set_z_as_relative_to_parent(dropshadow_ci, true);
+							rs->canvas_item_set_draw_behind_parent(dropshadow_ci, true);
+							rs->canvas_item_set_z_index(dropshadow_ci, tile_z_index - 1);
+
+							rs->canvas_item_set_default_texture_filter(dropshadow_ci, RS::CanvasItemTextureFilter(get_texture_filter_in_tree()));
+							rs->canvas_item_set_default_texture_repeat(dropshadow_ci, RS::CanvasItemTextureRepeat(get_texture_repeat_in_tree()));
+
+							rs->canvas_item_set_modulate(dropshadow_ci, dropshadow_modulate_color);
+
+							rendering_quadrant->canvas_items.push_back(dropshadow_ci);
+						} // DROP SHADOW SETUP LOGIC END
+
 						rendering_quadrant->canvas_items.push_back(ci);
 
 						prev_ci = ci;
+						prev_dropshadow = dropshadow_ci;
 						prev_material = mat;
 						prev_z_index = tile_z_index;
 
 					} else {
 						// Keep the same canvas_item to draw on.
 						ci = prev_ci;
+						dropshadow_ci = prev_dropshadow;
 					}
 
 					const Vector2 local_tile_pos = tile_set->map_to_local(cell_data.coords);
@@ -345,6 +375,11 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 						to_hash.push_back(local_tile_pos);
 						to_hash.push_back(get_instance_id()); // Use instance id as a random hash
 						random_animation_offset = RandomPCG(to_hash.hash()).randf();
+					}
+
+					// Drawing the dropshadow first, if it's available.
+					if (dropshadow_ci != RID()) {
+						draw_tile(dropshadow_ci, local_tile_pos - rendering_quadrant->canvas_items_position + dropshadow_offset, tile_set, cell_data.cell.source_id, cell_data.cell.get_atlas_coords(), cell_data.cell.alternative_tile, -1, get_self_modulate(), tile_data, random_animation_offset);
 					}
 
 					// Drawing the tile in the canvas item.
@@ -1778,6 +1813,10 @@ void TileMapLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_cell_alternative_tile", "coords"), &TileMapLayer::get_cell_alternative_tile);
 	ClassDB::bind_method(D_METHOD("get_cell_tile_data", "coords"), &TileMapLayer::get_cell_tile_data);
 
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_h", "coords"), &TileMapLayer::is_cell_flipped_h);
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_v", "coords"), &TileMapLayer::is_cell_flipped_v);
+	ClassDB::bind_method(D_METHOD("is_cell_transposed", "coords"), &TileMapLayer::is_cell_transposed);
+
 	ClassDB::bind_method(D_METHOD("get_used_cells"), &TileMapLayer::get_used_cells);
 	ClassDB::bind_method(D_METHOD("get_used_cells_by_id", "source_id", "atlas_coords", "alternative_tile"), &TileMapLayer::get_used_cells_by_id, DEFVAL(TileSet::INVALID_SOURCE), DEFVAL(TileSetSource::INVALID_ATLAS_COORDS), DEFVAL(TileSetSource::INVALID_TILE_ALTERNATIVE));
 	ClassDB::bind_method(D_METHOD("get_used_rect"), &TileMapLayer::get_used_rect);
@@ -1836,6 +1875,15 @@ void TileMapLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_navigation_visibility_mode", "show_navigation"), &TileMapLayer::set_navigation_visibility_mode);
 	ClassDB::bind_method(D_METHOD("get_navigation_visibility_mode"), &TileMapLayer::get_navigation_visibility_mode);
 
+	ClassDB::bind_method(D_METHOD("set_dropshadow_enabled", "enabled"), &TileMapLayer::set_dropshadow_enabled);
+	ClassDB::bind_method(D_METHOD("is_dropshadow_enabled"), &TileMapLayer::is_dropshadow_enabled);
+
+	ClassDB::bind_method(D_METHOD("set_dropshadow_offset", "offset"), &TileMapLayer::set_dropshadow_offset);
+	ClassDB::bind_method(D_METHOD("get_dropshadow_offset"), &TileMapLayer::get_dropshadow_offset);
+
+	ClassDB::bind_method(D_METHOD("set_dropshadow_color", "color"), &TileMapLayer::set_dropshadow_mod_color);
+	ClassDB::bind_method(D_METHOD("get_dropshadow_color"), &TileMapLayer::get_dropshadow_mod_color);
+
 	GDVIRTUAL_BIND(_use_tile_data_runtime_update, "coords");
 	GDVIRTUAL_BIND(_tile_data_runtime_update, "coords", "tile_data");
 
@@ -1854,6 +1902,11 @@ void TileMapLayer::_bind_methods() {
 	ADD_GROUP("Navigation", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "navigation_enabled"), "set_navigation_enabled", "is_navigation_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "navigation_visibility_mode", PROPERTY_HINT_ENUM, "Default,Force Show,Force Hide"), "set_navigation_visibility_mode", "get_navigation_visibility_mode");
+
+	ADD_GROUP("Dropshadow", "dropshadow_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_enabled"), "set_dropshadow_enabled", "is_dropshadow_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_offset"), "set_dropshadow_offset", "get_dropshadow_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_modulate_color"), "set_dropshadow_color", "get_dropshadow_color");
 
 	ADD_SIGNAL(MethodInfo(CoreStringName(changed)));
 
@@ -2523,6 +2576,18 @@ Rect2i TileMapLayer::get_used_rect() const {
 	return used_rect_cache;
 }
 
+bool TileMapLayer::is_cell_flipped_h(const Vector2i &p_coords) const {
+	return get_cell_alternative_tile(p_coords) & TileSetAtlasSource::TRANSFORM_FLIP_H;
+}
+
+bool TileMapLayer::is_cell_flipped_v(const Vector2i &p_coords) const {
+	return get_cell_alternative_tile(p_coords) & TileSetAtlasSource::TRANSFORM_FLIP_V;
+}
+
+bool TileMapLayer::is_cell_transposed(const Vector2i &p_coords) const {
+	return get_cell_alternative_tile(p_coords) & TileSetAtlasSource::TRANSFORM_TRANSPOSE;
+}
+
 Ref<TileMapPattern> TileMapLayer::get_pattern(TypedArray<Vector2i> p_coords_array) {
 	ERR_FAIL_COND_V(tile_set.is_null(), nullptr);
 
@@ -3022,6 +3087,36 @@ void TileMapLayer::set_navigation_visibility_mode(TileMapLayer::DebugVisibilityM
 
 TileMapLayer::DebugVisibilityMode TileMapLayer::get_navigation_visibility_mode() const {
 	return navigation_visibility_mode;
+}
+
+void TileMapLayer::set_dropshadow_enabled(bool p_enabled) {
+	bool changed = p_enabled != render_dropshadow;
+	render_dropshadow = p_enabled;
+	if (changed) {
+		dirty.flags[DIRTY_FLAGS_LAYER_DROPSHADOW_CHANGED] = true;
+		_queue_internal_update();
+		emit_signal(CoreStringName(changed));
+	}
+}
+
+void TileMapLayer::set_dropshadow_offset(Vector2i p_offset) {
+	bool changed = p_offset != dropshadow_offset;
+	dropshadow_offset = p_offset;
+	if (changed) {
+		dirty.flags[DIRTY_FLAGS_LAYER_DROPSHADOW_CHANGED] = true;
+		_queue_internal_update();
+		emit_signal(CoreStringName(changed));
+	}
+}
+
+void TileMapLayer::set_dropshadow_mod_color(Color p_color) {
+	bool changed = dropshadow_modulate_color != p_color;
+	dropshadow_modulate_color = p_color;
+	if (changed) {
+		dirty.flags[DIRTY_FLAGS_LAYER_DROPSHADOW_CHANGED] = true;
+		_queue_internal_update();
+		emit_signal(CoreStringName(changed));
+	}
 }
 
 TileMapLayer::TileMapLayer() {

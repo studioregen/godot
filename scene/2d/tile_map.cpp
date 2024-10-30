@@ -387,6 +387,30 @@ RID TileMap::get_layer_navigation_map(int p_layer) const {
 	TILEMAP_CALL_FOR_LAYER_V(p_layer, RID(), get_navigation_map);
 }
 
+void TileMap::set_layer_dropshadow_enabled(int p_layer, bool p_enabled) {
+	TILEMAP_CALL_FOR_LAYER(p_layer, set_dropshadow_enabled, p_enabled);
+}
+
+inline bool TileMap::is_layer_dropshadow_enabled(int p_layer) const {
+	TILEMAP_CALL_FOR_LAYER_V(p_layer, false, is_dropshadow_enabled);
+}
+
+void TileMap::set_layer_dropshadow_offset(int p_layer, Vector2i p_offset) {
+	TILEMAP_CALL_FOR_LAYER(p_layer, set_dropshadow_offset, p_offset);
+}
+
+Vector2i TileMap::get_layer_dropshadow_offset(int p_layer) const {
+	TILEMAP_CALL_FOR_LAYER_V(p_layer, Vector2i(), get_dropshadow_offset);
+}
+
+void TileMap::set_layer_dropshadow_mod_color(int p_layer, Color p_color) {
+	TILEMAP_CALL_FOR_LAYER(p_layer, set_dropshadow_mod_color, p_color);
+}
+
+Color TileMap::get_layer_dropshadow_mod_color(int p_layer) const {
+	TILEMAP_CALL_FOR_LAYER_V(p_layer, Color(), get_dropshadow_mod_color);
+}
+
 void TileMap::set_collision_animatable(bool p_collision_animatable) {
 	if (collision_animatable == p_collision_animatable) {
 		return;
@@ -534,6 +558,18 @@ TileData *TileMap::get_cell_tile_data(int p_layer, const Vector2i &p_coords, boo
 
 NodePath TileMap::get_cell_scene_path(int p_layer, const Vector2i &p_coords) const {
 	TILEMAP_CALL_FOR_LAYER_V(p_layer, NodePath(), get_cell_scene_path, p_coords);
+}
+
+bool TileMap::is_cell_flipped_h(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_FLIP_H;
+}
+
+bool TileMap::is_cell_flipped_v(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_FLIP_V;
+}
+
+bool TileMap::is_cell_transposed(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_TRANSPOSE;
 }
 
 Ref<TileMapPattern> TileMap::get_pattern(int p_layer, TypedArray<Vector2i> p_coords_array) {
@@ -915,6 +951,15 @@ void TileMap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_layer_navigation_map", "layer", "map"), &TileMap::set_layer_navigation_map);
 	ClassDB::bind_method(D_METHOD("get_layer_navigation_map", "layer"), &TileMap::get_layer_navigation_map);
 
+	ClassDB::bind_method(D_METHOD("set_layer_dropshadow_enabled", "layer", "enabled"), &TileMap::set_layer_dropshadow_enabled);
+	ClassDB::bind_method(D_METHOD("is_layer_dropshadow_enabled", "layer"), &TileMap::is_layer_dropshadow_enabled);
+
+	ClassDB::bind_method(D_METHOD("set_layer_dropshadow_offset", "layer", "offset"), &TileMap::set_layer_dropshadow_offset);
+	ClassDB::bind_method(D_METHOD("get_layer_dropshadow_offset", "layer"), &TileMap::get_layer_dropshadow_offset);
+
+	ClassDB::bind_method(D_METHOD("set_layer_dropshadow_color", "layer", "color"), &TileMap::set_layer_dropshadow_mod_color);
+	ClassDB::bind_method(D_METHOD("get_layer_dropshadow_mod_color", "layer"), &TileMap::get_layer_dropshadow_mod_color);
+
 	ClassDB::bind_method(D_METHOD("set_collision_animatable", "enabled"), &TileMap::set_collision_animatable);
 	ClassDB::bind_method(D_METHOD("is_collision_animatable"), &TileMap::is_collision_animatable);
 	ClassDB::bind_method(D_METHOD("set_collision_visibility_mode", "collision_visibility_mode"), &TileMap::set_collision_visibility_mode);
@@ -930,6 +975,10 @@ void TileMap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_cell_alternative_tile", "layer", "coords", "use_proxies"), &TileMap::get_cell_alternative_tile, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_cell_tile_data", "layer", "coords", "use_proxies"), &TileMap::get_cell_tile_data, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_cell_scene_path", "layer", "coords"), &TileMap::get_cell_scene_path);
+
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_h", "layer", "coords", "use_proxies"), &TileMap::is_cell_flipped_h, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_v", "layer", "coords", "use_proxies"), &TileMap::is_cell_flipped_v, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("is_cell_transposed", "layer", "coords", "use_proxies"), &TileMap::is_cell_transposed, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("get_coords_for_body_rid", "body"), &TileMap::get_coords_for_body_rid);
 	ClassDB::bind_method(D_METHOD("get_layer_for_body_rid", "body"), &TileMap::get_layer_for_body_rid);
@@ -1002,6 +1051,9 @@ TileMap::TileMap() {
 		base_property_helper.register_property(PropertyInfo(Variant::INT, "y_sort_origin", PROPERTY_HINT_NONE, "suffix:px"), defaults->get_y_sort_origin(), &TileMap::set_layer_y_sort_origin, &TileMap::get_layer_y_sort_origin);
 		base_property_helper.register_property(PropertyInfo(Variant::INT, "z_index"), defaults->get_z_index(), &TileMap::set_layer_z_index, &TileMap::get_layer_z_index);
 		base_property_helper.register_property(PropertyInfo(Variant::BOOL, "navigation_enabled"), defaults->is_navigation_enabled(), &TileMap::set_layer_navigation_enabled, &TileMap::is_layer_navigation_enabled);
+		base_property_helper.register_property(PropertyInfo(Variant::BOOL, "dropshadow_enabled"), defaults->is_dropshadow_enabled(), &TileMap::set_layer_dropshadow_enabled, &TileMap::is_layer_dropshadow_enabled);
+		base_property_helper.register_property(PropertyInfo(Variant::VECTOR2I, "dropshadow_offset"), defaults->get_dropshadow_offset(), &TileMap::set_layer_dropshadow_offset, &TileMap::get_layer_dropshadow_offset);
+		base_property_helper.register_property(PropertyInfo(Variant::COLOR, "dropshadow_color"), defaults->get_dropshadow_mod_color(), &TileMap::set_layer_dropshadow_mod_color, &TileMap::get_layer_dropshadow_mod_color);
 		base_property_helper.register_property(PropertyInfo(Variant::PACKED_INT32_ARRAY, "tile_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), Vector<int>(), &TileMap::_set_layer_tile_data, &TileMap::_get_tile_map_data_using_compatibility_format);
 		PropertyListHelper::register_base_helper(&base_property_helper);
 

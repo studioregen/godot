@@ -148,6 +148,15 @@ public:
 	void set_layer_navigation_map(int p_layer, RID p_map);
 	RID get_layer_navigation_map(int p_layer) const;
 
+	void set_layer_dropshadow_enabled(int p_layer, bool p_enabled);
+	bool is_layer_dropshadow_enabled(int p_layer) const;
+
+	void set_layer_dropshadow_offset(int p_layer, Vector2i p_offset);
+	Vector2i get_layer_dropshadow_offset(int p_layer) const;
+
+	void set_layer_dropshadow_mod_color(int p_layer, Color p_color);
+	Color get_layer_dropshadow_mod_color(int p_layer) const;
+
 	void set_collision_animatable(bool p_collision_animatable);
 	bool is_collision_animatable() const;
 
@@ -167,6 +176,10 @@ public:
 	// Helper method to make accessing the data easier.
 	TileData *get_cell_tile_data(int p_layer, const Vector2i &p_coords, bool p_use_proxies = false) const;
 	NodePath get_cell_scene_path(int p_layer, const Vector2i &p_coords) const;
+
+	bool is_cell_flipped_h(int p_layer, const Vector2i &p_coords, bool p_use_proxies = false) const;
+	bool is_cell_flipped_v(int p_layer, const Vector2i &p_coords, bool p_use_proxies = false) const;
+	bool is_cell_transposed(int p_layer, const Vector2i &p_coords, bool p_use_proxies = false) const;
 
 	// Patterns.
 	Ref<TileMapPattern> get_pattern(int p_layer, TypedArray<Vector2i> p_coords_array);

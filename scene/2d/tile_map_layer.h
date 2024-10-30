@@ -257,6 +257,7 @@ public:
 		DIRTY_FLAGS_LAYER_NAVIGATION_ENABLED,
 		DIRTY_FLAGS_LAYER_NAVIGATION_MAP,
 		DIRTY_FLAGS_LAYER_NAVIGATION_VISIBILITY_MODE,
+		DIRTY_FLAGS_LAYER_DROPSHADOW_CHANGED,
 		DIRTY_FLAGS_LAYER_RUNTIME_UPDATE,
 
 		DIRTY_FLAGS_LAYER_INDEX_IN_TILE_MAP_NODE, // For compatibility.
@@ -298,6 +299,10 @@ private:
 	// For keeping compatibility with TileMap.
 	TileMap *tile_map_node = nullptr;
 	int layer_index_in_tile_map_node = -1;
+
+	bool render_dropshadow = true;
+	Vector2i dropshadow_offset = Vector2i(8, 8);
+	Color dropshadow_modulate_color = Color(0.0, 0.0, 0.0, 0.25);
 
 	// Dirty flag. Allows knowing what was modified since the last update.
 	struct {
@@ -440,6 +445,10 @@ public:
 	TypedArray<Vector2i> get_used_cells_by_id(int p_source_id = TileSet::INVALID_SOURCE, const Vector2i &p_atlas_coords = TileSetSource::INVALID_ATLAS_COORDS, int p_alternative_tile = TileSetSource::INVALID_TILE_ALTERNATIVE) const;
 	Rect2i get_used_rect() const;
 
+	bool is_cell_flipped_h(const Vector2i &p_coords) const;
+	bool is_cell_flipped_v(const Vector2i &p_coords) const;
+	bool is_cell_transposed(const Vector2i &p_coords) const;
+
 	// Patterns.
 	Ref<TileMapPattern> get_pattern(TypedArray<Vector2i> p_coords_array);
 	void set_pattern(const Vector2i &p_position, const Ref<TileMapPattern> p_pattern);
@@ -501,6 +510,15 @@ public:
 	RID get_navigation_map() const;
 	void set_navigation_visibility_mode(DebugVisibilityMode p_show_navigation);
 	DebugVisibilityMode get_navigation_visibility_mode() const;
+
+	void set_dropshadow_enabled(bool p_enabled);
+	inline bool is_dropshadow_enabled() const { return render_dropshadow; }
+
+	void set_dropshadow_offset(Vector2i p_offset);
+	inline Vector2i get_dropshadow_offset() const { return dropshadow_offset; }
+
+	void set_dropshadow_mod_color(Color p_color);
+	inline Color get_dropshadow_mod_color() const { return dropshadow_modulate_color; }
 
 	TileMapLayer();
 	~TileMapLayer();
