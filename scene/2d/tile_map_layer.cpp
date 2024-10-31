@@ -343,7 +343,7 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 
 							rs->canvas_item_set_z_as_relative_to_parent(dropshadow_ci, true);
 							rs->canvas_item_set_draw_behind_parent(dropshadow_ci, true);
-							rs->canvas_item_set_z_index(dropshadow_ci, tile_z_index - 1);
+							rs->canvas_item_set_z_index(dropshadow_ci, -1 - get_z_index());
 
 							rs->canvas_item_set_default_texture_filter(dropshadow_ci, RS::CanvasItemTextureFilter(get_texture_filter_in_tree()));
 							rs->canvas_item_set_default_texture_repeat(dropshadow_ci, RS::CanvasItemTextureRepeat(get_texture_repeat_in_tree()));
