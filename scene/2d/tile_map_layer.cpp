@@ -1906,7 +1906,7 @@ void TileMapLayer::_bind_methods() {
 	ADD_GROUP("Dropshadow", "dropshadow_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_enabled"), "set_dropshadow_enabled", "is_dropshadow_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_offset"), "set_dropshadow_offset", "get_dropshadow_offset");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dropshadow_modulate_color"), "set_dropshadow_color", "get_dropshadow_color");
+	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "dropshadow_modulate_color"), "set_dropshadow_color", "get_dropshadow_color");
 
 	ADD_SIGNAL(MethodInfo(CoreStringName(changed)));
 
