@@ -391,6 +391,7 @@ private:
 
 	enum {
 		ADVANCED_MENU_REPLACE_WITH_PROXIES,
+		ADVANCED_MENU_EXTRACT_TILE_SELECTION,
 		ADVANCED_MENU_EXTRACT_TILE_MAP_LAYERS,
 	};
 	MenuButton *advanced_menu_button = nullptr;

@@ -1732,6 +1732,10 @@ void TileMapLayerEditorTilesPlugin::_export_selection_as_image() {
 			TileMapCell cell = tile_map_layer->get_cell(tile_map_pos);
 			const int atlas_source_id = cell.source_id;
 
+			if (atlas_source_id == -1) {
+				continue;
+			}
+
 			TileSetSource *source = *tile_set->get_source(atlas_source_id);
 			if (!source) {
 				continue;
@@ -1758,8 +1762,11 @@ void TileMapLayerEditorTilesPlugin::_export_selection_as_image() {
 
 	String config_path = OS::get_singleton()->get_config_path();
 
+	print_line("Image Generated");
+
 	file->set_file_mode(EditorFileDialog::FILE_MODE_SAVE_FILE);
 	file->set_filters({ "*.png" });
+	file->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	file->popup_file_dialog();
 
 	cached_export_tiles = img;
@@ -2439,6 +2446,7 @@ TileMapLayerEditorTilesPlugin::TileMapLayerEditorTilesPlugin() {
 	change_source_ids = memnew(Button);
 	change_source_ids->set_tooltip_text(TTR("Remap source IDs"));
 	change_source_ids->set_text("Remap Sources");
+	change_source_ids->set_flat(true);
 	change_source_ids->connect("pressed", callable_mp(this, &TileMapLayerEditorTilesPlugin::_remap_source_ids));
 	tools_settings->add_child(change_source_ids);
 
@@ -4096,6 +4104,8 @@ void TileMapLayerEditor::_advanced_menu_button_id_pressed(int p_id) {
 			undo_redo->add_undo_property(tile_map, prop.name, tile_map->get(prop.name));
 		}
 		undo_redo->commit_action();
+	} else if (p_id == ADVANCED_MENU_EXTRACT_TILE_SELECTION) {
+		return;
 	}
 }
 
@@ -4639,7 +4649,7 @@ TileMapLayerEditor::TileMapLayerEditor() {
 	advanced_menu_button->set_flat(false);
 	advanced_menu_button->set_theme_type_variation("FlatButton");
 	advanced_menu_button->get_popup()->add_item(TTR("Automatically Replace Tiles with Proxies"), ADVANCED_MENU_REPLACE_WITH_PROXIES);
-	advanced_menu_button->get_popup()->add_item(TTR("Copy selected tile region to clipboard"));
+	advanced_menu_button->get_popup()->add_item(TTR("Copy selected tile region to clipboard"), ADVANCED_MENU_EXTRACT_TILE_SELECTION);
 	advanced_menu_button->get_popup()->add_item(TTR("Extract TileMap layers as individual TileMapLayer nodes"), ADVANCED_MENU_EXTRACT_TILE_MAP_LAYERS);
 	advanced_menu_button->get_popup()->connect(SceneStringName(id_pressed), callable_mp(this, &TileMapLayerEditor::_advanced_menu_button_id_pressed));
 	tile_map_toolbar->add_child(advanced_menu_button);
