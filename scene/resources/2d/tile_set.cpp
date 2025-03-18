@@ -6131,6 +6131,7 @@ TileData *TileData::duplicate() {
 	output->transpose = transpose;
 	output->texture_origin = texture_origin;
 	output->material = material;
+	output->prefers_parent_material = prefers_parent_material;
 	output->modulate = modulate;
 	output->z_index = z_index;
 	output->y_sort_origin = y_sort_origin;
@@ -6194,6 +6195,14 @@ void TileData::set_material(Ref<Material> p_material) {
 }
 Ref<Material> TileData::get_material() const {
 	return material;
+}
+
+void TileData::set_prefers_parent_material(bool p_preference) {
+	prefers_parent_material = p_preference;
+}
+
+bool TileData::get_prefers_parent_material() const {
+	return prefers_parent_material;
 }
 
 void TileData::set_modulate(Color p_modulate) {
@@ -6914,6 +6923,8 @@ void TileData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_transpose"), &TileData::get_transpose);
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &TileData::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &TileData::get_material);
+	ClassDB::bind_method(D_METHOD("set_prefers_parent_material", "preference"), &TileData::set_prefers_parent_material);
+	ClassDB::bind_method(D_METHOD("get_prefers_parent_material"), &TileData::get_prefers_parent_material);
 	ClassDB::bind_method(D_METHOD("set_texture_origin", "texture_origin"), &TileData::set_texture_origin);
 	ClassDB::bind_method(D_METHOD("get_texture_origin"), &TileData::get_texture_origin);
 	ClassDB::bind_method(D_METHOD("set_modulate", "modulate"), &TileData::set_modulate);
@@ -6972,6 +6983,7 @@ void TileData::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "texture_origin", PROPERTY_HINT_NONE, "suffix:px"), "set_texture_origin", "get_texture_origin");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "modulate"), "set_modulate", "get_modulate");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "CanvasItemMaterial,ShaderMaterial"), "set_material", "get_material");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "prefer_parent_material"), "set_prefers_parent_material", "get_prefers_parent_material");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "z_index"), "set_z_index", "get_z_index");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "y_sort_origin"), "set_y_sort_origin", "get_y_sort_origin");
 
