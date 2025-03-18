@@ -837,6 +837,7 @@ private:
 	bool transpose = false;
 	Vector2i texture_origin;
 	Ref<Material> material = Ref<Material>();
+	bool prefers_parent_material = false;
 	Color modulate = Color(1.0, 1.0, 1.0, 1.0);
 	int z_index = 0;
 	int y_sort_origin = 0;
@@ -934,6 +935,8 @@ public:
 	Vector2i get_texture_origin() const;
 	void set_material(Ref<Material> p_material);
 	Ref<Material> get_material() const;
+	void set_prefers_parent_material(bool p_preference);
+	bool get_prefers_parent_material() const;
 	void set_modulate(Color p_modulate);
 	Color get_modulate() const;
 	void set_z_index(int p_z_index);

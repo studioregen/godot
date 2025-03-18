@@ -297,6 +297,8 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 					}
 
 					Ref<Material> mat = tile_data->get_material();
+					bool prefer_parent_material = tile_data->get_prefers_parent_material();
+					bool has_parent_material = tile_map_node ? tile_map_node->get_material().is_valid() : false; 
 					int tile_z_index = tile_data->get_z_index();
 
 					// Quandrant pos.
@@ -316,7 +318,7 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 							rs->canvas_item_set_material(ci, mat->get_rid());
 						}
 						rs->canvas_item_set_parent(ci, get_canvas_item());
-						rs->canvas_item_set_use_parent_material(ci, !mat.is_valid());
+						rs->canvas_item_set_use_parent_material(ci, !mat.is_valid() || (has_parent_material && prefer_parent_material));
 
 						Transform2D xform(0, rendering_quadrant->canvas_items_position);
 						rs->canvas_item_set_transform(ci, xform);
