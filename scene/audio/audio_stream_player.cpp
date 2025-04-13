@@ -142,6 +142,14 @@ bool AudioStreamPlayer::is_autoplay_enabled() const {
 	return internal->autoplay;
 }
 
+void AudioStreamPlayer::set_choke_on_exit(bool p_enable) {
+	internal->choke_on_removal = p_enable;
+}
+
+bool AudioStreamPlayer::will_choke_on_exit() {
+	return internal->choke_on_removal;
+}
+
 void AudioStreamPlayer::set_mix_target(MixTarget p_target) {
 	mix_target = p_target;
 }
@@ -246,6 +254,9 @@ void AudioStreamPlayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_autoplay", "enable"), &AudioStreamPlayer::set_autoplay);
 	ClassDB::bind_method(D_METHOD("is_autoplay_enabled"), &AudioStreamPlayer::is_autoplay_enabled);
 
+	ClassDB::bind_method(D_METHOD("set_choke_on_exit", "enable"), &AudioStreamPlayer::set_choke_on_exit);
+	ClassDB::bind_method(D_METHOD("will_choke_on_exit"), &AudioStreamPlayer::will_choke_on_exit);
+
 	ClassDB::bind_method(D_METHOD("set_mix_target", "mix_target"), &AudioStreamPlayer::set_mix_target);
 	ClassDB::bind_method(D_METHOD("get_mix_target"), &AudioStreamPlayer::get_mix_target);
 
@@ -269,6 +280,7 @@ void AudioStreamPlayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "pitch_scale", PROPERTY_HINT_RANGE, "0.01,4,0.01,or_greater"), "set_pitch_scale", "get_pitch_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "playing", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "_set_playing", "is_playing");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "autoplay"), "set_autoplay", "is_autoplay_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "choke_on_exit"), "set_choke_on_exit", "will_choke_on_exit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stream_paused", PROPERTY_HINT_NONE, ""), "set_stream_paused", "get_stream_paused");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mix_target", PROPERTY_HINT_ENUM, "Stereo,Surround,Center"), "set_mix_target", "get_mix_target");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_polyphony", PROPERTY_HINT_NONE, ""), "set_max_polyphony", "get_max_polyphony");
