@@ -1404,6 +1404,10 @@ bool AudioServer::is_playback_paused(Ref<AudioStreamPlayback> p_playback) {
 	return playback_node->state.load() == AudioStreamPlaybackListNode::PAUSED || playback_node->state.load() == AudioStreamPlaybackListNode::FADE_OUT_TO_PAUSE;
 }
 
+uint64_t AudioServer::get_playback_count() {
+	return playback_list.size();
+}
+
 uint64_t AudioServer::get_mix_count() const {
 	return mix_count;
 }
@@ -1911,6 +1915,8 @@ void AudioServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("lock"), &AudioServer::lock);
 	ClassDB::bind_method(D_METHOD("unlock"), &AudioServer::unlock);
+
+	ClassDB::bind_method(D_METHOD("get_playback_count"), &AudioServer::get_playback_count);
 
 	ClassDB::bind_method(D_METHOD("get_speaker_mode"), &AudioServer::get_speaker_mode);
 	ClassDB::bind_method(D_METHOD("get_mix_rate"), &AudioServer::get_mix_rate);

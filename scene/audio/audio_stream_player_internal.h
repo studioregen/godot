@@ -75,6 +75,7 @@ public:
 	float pitch_scale = 1.0;
 	float volume_db = 0.0;
 	bool autoplay = false;
+	bool choke_on_removal = true;
 	StringName bus;
 	int max_polyphony = 1;
 

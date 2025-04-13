@@ -200,6 +200,14 @@ public:
 		return Iterator(nullptr, this);
 	}
 
+	_FORCE_INLINE_ int size() {
+		int size = 0;
+		for (Iterator it = begin(); it != end(); ++it) {
+			size++;
+		}
+		return size;
+	}
+
 	// Calling this will cause zero to many deallocations.
 	bool maybe_cleanup() {
 		SafeListNode *cursor = nullptr;
