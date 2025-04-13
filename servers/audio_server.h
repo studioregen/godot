@@ -422,6 +422,8 @@ public:
 	float get_playback_position(Ref<AudioStreamPlayback> p_playback);
 	bool is_playback_paused(Ref<AudioStreamPlayback> p_playback);
 
+	uint64_t get_playback_count();
+
 	uint64_t get_mix_count() const;
 	uint64_t get_mixed_frames() const;
 

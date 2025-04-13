@@ -98,7 +98,10 @@ void AudioStreamPlayerInternal::notification(int p_what) {
 		} break;
 
 		case Node::NOTIFICATION_EXIT_TREE: {
-			set_stream_paused(true);
+			// We choke when we exit tree -- if we ever return to the tree, we'll continue where we left off.
+			if (choke_on_removal) {
+				set_stream_paused(true);
+			}
 		} break;
 
 		case Node::NOTIFICATION_INTERNAL_PROCESS: {
@@ -106,8 +109,12 @@ void AudioStreamPlayerInternal::notification(int p_what) {
 		} break;
 
 		case Node::NOTIFICATION_PREDELETE: {
-			for (Ref<AudioStreamPlayback> &playback : stream_playbacks) {
-				AudioServer::get_singleton()->stop_playback_stream(playback);
+			// We only stop playback if we intend to choke the sample short on node removal.
+			// NOTE: We also want to make sure it's a sample to prevent long-form audio from enter an uncontrollable state.
+			if (choke_on_removal && _is_sample()) {
+				for (Ref<AudioStreamPlayback> &playback : stream_playbacks) {
+					AudioServer::get_singleton()->stop_playback_stream(playback);
+				}
 			}
 			stream_playbacks.clear();
 		} break;
